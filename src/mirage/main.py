@@ -6,6 +6,7 @@ import argparse
 import datetime
 import shutil
 import re
+import json
 from pathlib import Path
 from typing import Optional
 
@@ -35,7 +36,6 @@ def run_command(command: str, shell: bool = True, quiet: bool = False) -> None:
                 text=True
             )
         else:
-            # When not quiet, we let it print to stdout/stderr naturally
             subprocess.run(command, shell=shell, check=True, executable='/bin/bash')
             
     except subprocess.CalledProcessError as e:
@@ -49,26 +49,36 @@ def run_command(command: str, shell: bool = True, quiet: bool = False) -> None:
             console.print(e)
         raise
 
+def get_audio_duration(file_path: Path) -> float:
+    """Gets the duration of a media file in seconds using ffprobe."""
+    try:
+        cmd = [
+            settings.ffprobe_cmd, 
+            "-v", "error", 
+            "-show_entries", "format=duration", 
+            "-of", "default=noprint_wrappers=1:nokey=1", 
+            str(file_path)
+        ]
+        result = subprocess.run(cmd, capture_output=True, text=True, check=True)
+        return float(result.stdout.strip())
+    except (subprocess.CalledProcessError, ValueError):
+        console.print(f"[yellow]Warning: Could not determine duration of {file_path}. Defaulting to 60s.[/yellow]")
+        return 60.0
+
 def cmd_weather(args: argparse.Namespace) -> None:
-    """
-    Orchestrates the Weather Atmospheric Experience generation.
-    """
+    """Orchestrates the Weather Atmospheric Experience generation."""
     location = args.location
     generate_video = args.video
     silent = args.silent
     
-    # Setup Output Directory
     sanitized_loc = location.replace(" ", "_").replace("/", "-")
     timestamp = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-    
-    # Use configured base directory
     output_dir = settings.output_base_dir / f"Weather_{sanitized_loc}_{timestamp}"
     output_dir.mkdir(parents=True, exist_ok=True)
 
     if not silent:
         console.print(Panel(f"[bold green]Starting Mirage: Weather[/bold green]\nLocation: [cyan]{location}[/cyan]\nOutput: [yellow]{output_dir}[/yellow]", title="Mirage"))
 
-    # Define paths
     context_file = output_dir / "context.txt"
     podcast_file = output_dir / "podcast.mp3"
     image_file = output_dir / "background_art.png"
@@ -76,11 +86,8 @@ def cmd_weather(args: argparse.Namespace) -> None:
     html_file = output_dir / "index.html"
 
     with console.status(f"[bold green]Gathering atmospheric data for {location}...[/bold green]", spinner="earth") as status:
-        # 1. Gather Data
-        if not silent:
-            status.update(f"[bold green]Gathering atmospheric data for {location}...[/bold green]")
+        if not silent: status.update(f"[bold green]Gathering atmospheric data for {location}...[/bold green]")
         
-        # We use the config settings for commands
         cmd_gather = (
             f"{settings.atmos_cmd} alert \"{location}\" > \"{context_file}\" && "
             f"{settings.atmos_cmd} \"{location}\" >> \"{context_file}\" && "
@@ -90,39 +97,29 @@ def cmd_weather(args: argparse.Namespace) -> None:
         )
         run_command(cmd_gather, quiet=True) 
 
-        # Read context
         context_text = context_file.read_text(encoding="utf-8")
 
-        # 2. Generate Audio
-        if not silent:
-            status.update("[bold blue]Synthesizing immersive audio podcast...[/bold blue]")
-        # Pipe input to avoid gen-tts stdin detection issues
+        if not silent: status.update("[bold blue]Synthesizing immersive audio podcast...[/bold blue]")
         run_command(f"cat \"{context_file}\" | {settings.gen_tts_cmd} --podcast --no-play --audio-format MP3 --output-file \"{podcast_file}\"", quiet=silent)
 
-        # 3. Generate Image
-        if not silent:
-            status.update("[bold magenta]Dreaming up background visual...[/bold magenta]")
+        if not silent: status.update("[bold magenta]Dreaming up background visual...[/bold magenta]")
         run_command(f"cat \"{context_file}\" | {settings.lumina_cmd} --opt --output-dir \"{output_dir}\" -f background_art.png", quiet=silent)
 
         if not image_file.exists():
             console.print("[yellow]Warning: Lumina failed to generate an image. Creating placeholder.[/yellow]")
             run_command(f"{settings.convert_cmd} -size 1024x1024 xc:black \"{image_file}\"", quiet=silent)
         
-        # 4. Generate Video (Optional)
         has_video = False
         if generate_video:
             if image_file.exists():
-                if not silent:
-                    status.update("[bold cyan]Animating scene with Vidius (this may take a moment)...[/bold cyan]")
+                if not silent: status.update("[bold cyan]Animating scene with Vidius...[/bold cyan]")
                 vid_prompt = f"Cinematic slow motion animation of {location}, realistic weather, highly detailed"
                 run_command(f"{settings.vidius_cmd} \"{vid_prompt}\" -i \"{image_file}\" -o \"{video_file}\" -na", quiet=silent)
                 has_video = video_file.exists()
             else:
                 console.print("[yellow]Skipping video generation: No source image.[/yellow]")
 
-        # 5. Generate HTML
-        if not silent:
-            status.update("[bold white]Assembling final experience...[/bold white]")
+        if not silent: status.update("[bold white]Assembling final experience...[/bold white]")
         
         env = Environment(loader=FileSystemLoader(Path(__file__).parent / "templates"))
         template = env.get_template("index.html.j2")
@@ -134,22 +131,18 @@ def cmd_weather(args: argparse.Namespace) -> None:
             audio_file=podcast_file.name,
             video_file=video_file.name if has_video else None
         )
-        
         html_file.write_text(html_content, encoding="utf-8")
 
     if not silent:
         console.print(Panel(f"[bold green]Experience Ready![/bold green]\nOpen: [link=file://{html_file.absolute()}]{html_file}[/link]", border_style="green"))
 
 def cmd_research(args: argparse.Namespace) -> None:
-    """
-    Orchestrates the Deep Research Documentary generation.
-    """
+    """Orchestrates the Deep Research Documentary generation."""
     topic = args.topic
     generate_video = args.video
     silent = args.silent
     
-    # Setup Output Directory
-    sanitized_topic = topic.replace(" ", "_").replace("/", "-")[:50] # Limit length
+    sanitized_topic = topic.replace(" ", "_").replace("/", "-")[:50]
     timestamp = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
     output_dir = settings.output_base_dir / f"Research_{sanitized_topic}_{timestamp}"
     output_dir.mkdir(parents=True, exist_ok=True)
@@ -157,7 +150,6 @@ def cmd_research(args: argparse.Namespace) -> None:
     if not silent:
         console.print(Panel(f"[bold green]Starting Mirage: Research Documentary[/bold green]\nTopic: [cyan]{topic}[/cyan]\nOutput: [yellow]{output_dir}[/yellow]", title="Mirage"))
 
-    # Define paths
     context_file = output_dir / "research.md"
     podcast_file = output_dir / "podcast.mp3"
     music_file = output_dir / "music.mp3"
@@ -166,10 +158,7 @@ def cmd_research(args: argparse.Namespace) -> None:
     html_file = output_dir / "index.html"
 
     with console.status(f"[bold green]Conducting deep research on: {topic}...[/bold green]", spinner="dots") as status:
-        
-        # 1. Deep Research
-        if not silent:
-            status.update(f"[bold green]Conducting deep research on: {topic}...[/bold green]")
+        if not silent: status.update(f"[bold green]Conducting deep research on: {topic}...[/bold green]")
         
         run_command(f"{settings.deep_research_cmd} research \"{topic}\" --output \"{context_file}\"", quiet=silent)
         
@@ -177,125 +166,173 @@ def cmd_research(args: argparse.Namespace) -> None:
             console.print("[red]Deep Research failed to produce output.[/red]")
             return
 
-        # Read context
         context_text = context_file.read_text(encoding="utf-8")
 
-        # 2. Generate Audio (Podcast) & Capture Script
-        if not silent:
-            status.update("[bold blue]Scripting and recording documentary...[/bold blue]")
-        
-        # We need to capture the output to get the script, but run_command only captures if quiet=True
-        # We'll use subprocess manually here to guarantee capture
+        if not silent: status.update("[bold blue]Scripting and recording documentary...[/bold blue]")
         tts_cmd = f"cat \"{context_file}\" | {settings.gen_tts_cmd} --podcast --no-play --audio-format MP3 --output-file \"{podcast_file}\""
-        
         result = subprocess.run(tts_cmd, shell=True, capture_output=True, text=True)
         if result.returncode != 0:
             console.print(f"[bold red]Error generating audio:[/bold red] {result.stderr}")
-            # Continue mostly, or fail? Let's fail hard if no audio
-            if not podcast_file.exists():
-                return
+            if not podcast_file.exists(): return
         
-        # Print output if not silent (so user sees progress/script if desired)
-        if not silent:
-            console.print(result.stdout)
+        if not silent: console.print(result.stdout)
             
-        # Parse Script from Output
-        # gen-tts often prints to stderr (via rich console), so we check both
         full_output = result.stderr + "\n" + result.stdout
-        script_display_text = context_text # Default fallback
-        
+        script_display_text = context_text
         if "--- Generated Podcast Script ---" in full_output:
             try:
                 raw_script = full_output.split("--- Generated Podcast Script ---")[1]
-                # Clean up: Remove Speaker labels (Host:, Guest:, etc)
-                # Regex: Start of line, (Host|Guest|Speaker \w+):, space
                 clean_script = re.sub(r"^(Host|Guest|Speaker \w+):\s*", "", raw_script, flags=re.MULTILINE).strip()
                 script_display_text = clean_script
-            except Exception as e:
-                console.print(f"[yellow]Warning: Could not parse script from output ({e}). Using raw notes.[/yellow]")
+            except Exception: pass
 
-        # 3. Generate Music (Score)
-        if not silent:
-            status.update("[bold yellow]Composing original score...[/bold yellow]")
+        if not silent: status.update("[bold yellow]Composing original score...[/bold yellow]")
         music_prompt = f"Ambient documentary background music, {topic}, cinematic score"
-        run_command(f"{settings.gen_music_cmd} \"{music_prompt}\" --output \"{music_file}\" --format mp3 --duration 30", quiet=silent) # 30s loop?
+        run_command(f"{settings.gen_music_cmd} \"{music_prompt}\" --output \"{music_file}\" --format mp3 --duration 30", quiet=silent)
 
-        # 4. Generate Image
-        if not silent:
-            status.update("[bold magenta]Capturing visuals...[/bold magenta]")
+        if not silent: status.update("[bold magenta]Capturing visuals...[/bold magenta]")
         img_prompt = f"Editorial photography of {topic}, cinematic lighting, highly detailed, 8k"
         run_command(f"{settings.lumina_cmd} --prompt \"{img_prompt}\" --output-dir \"{output_dir}\" --filename background_art.png", quiet=silent)
 
-        # 5. Generate Video (Optional)
         has_video = False
         if generate_video:
             if image_file.exists():
-                if not silent:
-                    status.update("[bold cyan]Animating scene...[/bold cyan]")
+                if not silent: status.update("[bold cyan]Animating scene...[/bold cyan]")
                 vid_prompt = f"Cinematic slow motion animation of {topic}, documentary style"
                 run_command(f"{settings.vidius_cmd} \"{vid_prompt}\" -i \"{image_file}\" -o \"{video_file}\" -na", quiet=silent)
                 has_video = video_file.exists()
 
-        # 6. Generate HTML
-        if not silent:
-            status.update("[bold white]Publishing documentary...[/bold white]")
-        
+        if not silent: status.update("[bold white]Publishing documentary...[/bold white]")
         env = Environment(loader=FileSystemLoader(Path(__file__).parent / "templates"))
         template = env.get_template("research.html.j2")
-        
         html_content = template.render(
-            topic=topic,
-            context_text=script_display_text,
-            image_file=image_file.name,
-            audio_file=podcast_file.name,
-            music_file=music_file.name if music_file.exists() else None,
+            topic=topic, context_text=script_display_text, image_file=image_file.name,
+            audio_file=podcast_file.name, music_file=music_file.name if music_file.exists() else None,
             video_file=video_file.name if has_video else None
         )
-        
         html_file.write_text(html_content, encoding="utf-8")
 
     if not silent:
         console.print(Panel(f"[bold green]Documentary Ready![/bold green]\nOpen: [link=file://{html_file.absolute()}]{html_file}[/link]", border_style="green"))
+
+def cmd_news_short(args: argparse.Namespace) -> None:
+    """Generates a vertical YouTube Short News Report."""
+    topic = args.topic
+    silent = args.silent
+    
+    sanitized_topic = topic.replace(" ", "_").replace("/", "-")[:50]
+    timestamp = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+    output_dir = settings.output_base_dir / f"Short_{sanitized_topic}_{timestamp}"
+    output_dir.mkdir(parents=True, exist_ok=True)
+
+    if not silent:
+        console.print(Panel(f"[bold green]Starting Mirage: YouTube Short[/bold green]\nTopic: [cyan]{topic}[/cyan]\nOutput: [yellow]{output_dir}[/yellow]", title="Mirage"))
+
+    podcast_file = output_dir / "voice.mp3"
+    music_file = output_dir / "music.mp3"
+    image_file = output_dir / "visual.png"
+    video_file = output_dir / "visual.mp4"
+    final_file = output_dir / f"Mirage_Short_{sanitized_topic}.mp4"
+
+    with console.status(f"[bold green]Producing News Short for: {topic}...[/bold green]", spinner="dots") as status:
+        
+        # 1. Script & Voice
+        if not silent: status.update("[bold blue]Writing and recording news brief...[/bold blue]")
+        # Use gen-tts --mode news with --generate-transcript
+        # This asks Gemini to write the script about the topic in a news style, then speaks it.
+        run_command(f"{settings.gen_tts_cmd} --generate-transcript \"Breaking news update about {topic} for a YouTube Short\" --mode news --audio-format MP3 --output-file \"{podcast_file}\"", quiet=silent)
+
+        if not podcast_file.exists():
+            console.print("[red]Failed to generate voice track.[/red]")
+            return
+
+        # 2. Visuals (9:16)
+        if not silent: status.update("[bold magenta]Capturing vertical visuals...[/bold magenta]")
+        img_prompt = f"Vertical 9:16 editorial news image of {topic}, professional broadcast quality, 8k, highly detailed"
+        run_command(f"{settings.lumina_cmd} --prompt \"{img_prompt}\" --aspect-ratio 9:16 --output-dir \"{output_dir}\" --filename visual.png", quiet=silent)
+
+        if not image_file.exists():
+            console.print("[yellow]Visual generation failed. creating placeholder.[/yellow]")
+            run_command(f"{settings.convert_cmd} -size 1080x1920 xc:darkblue \"{image_file}\"", quiet=silent)
+
+        # 3. Video Animation
+        if not silent: status.update("[bold cyan]Animating background...[/bold cyan]")
+        vid_prompt = f"Slow cinematic news camera movement, {topic}, vertical 9:16"
+        run_command(f"{settings.vidius_cmd} \"{vid_prompt}\" -i \"{image_file}\" -o \"{video_file}\" -ar 9:16 -na", quiet=silent)
+
+        # 4. Music
+        if not silent: status.update("[bold yellow]Composing background beat...[/bold yellow]")
+        music_prompt = f"Breaking news intro music, high energy, electronic, background for {topic}"
+        run_command(f"{settings.gen_music_cmd} \"{music_prompt}\" --output \"{music_file}\" --format mp3 --duration 60", quiet=silent)
+
+        # 5. Assembly (FFmpeg)
+        if not silent: status.update("[bold white]Assembling final video...[/bold white]")
+        
+        # Get duration of voice to know when to stop
+        duration = get_audio_duration(podcast_file)
+        
+        # Complex filter:
+        # 1. Loop video (stream_loop -1)
+        # 2. Mix audio (voice + music at 0.2 vol)
+        # 3. Cut to shortest stream (which should be voice if we limit music?) 
+        # Actually simplest way: -t duration
+        
+        cmd_ffmpeg_safe = (
+            f"{settings.ffmpeg_cmd} -y "
+            f"-stream_loop -1 -i \"{video_file}\" "
+            f"-i \"{podcast_file}\" "
+            f"-stream_loop -1 -i \"{music_file}\" "
+            f"-filter_complex \"[2:a]volume=0.2[music];[1:a][music]amix=inputs=2:duration=first[audio]\" "
+            f"-map 0:v -map \"[audio]\" "
+            f"-t {duration} "
+            f"-c:v libx264 -pix_fmt yuv420p \"{final_file}\""
+        )
+        
+        run_command(cmd_ffmpeg_safe, quiet=silent)
+
+    if not silent:
+        console.print(Panel(f"[bold green]News Short Ready![/bold green]\nFile: [link=file://{final_file.absolute()}]{final_file}[/link]", border_style="green"))
 
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="Mirage: AI Experience Generator")
     subparsers = parser.add_subparsers(dest="command", help="Available subcommands")
 
-    # --- Weather Subcommand ---
-    weather_parser = subparsers.add_parser("weather", help="Generate an Atmospheric Weather Experience")
-    weather_parser.add_argument("-l", "--location", default=settings.default_location, help=f"Location for the weather forecast (default: {settings.default_location})")
-    weather_parser.add_argument("-s", "--silent", action="store_true", help="Run in silent mode (suppress tool output)")
-    weather_parser.add_argument("-v", "--video", action="store_true", help="Generate a background video animation using Vidius")
-    weather_parser.add_argument("-b", "--background", action="store_true", help="Run in background mode (detach from terminal)")
-    weather_parser.set_defaults(func=cmd_weather)
+    # --- Weather ---
+    weather = subparsers.add_parser("weather", help="Generate an Atmospheric Weather Experience")
+    weather.add_argument("-l", "--location", default=settings.default_location, help="Location")
+    weather.add_argument("-s", "--silent", action="store_true", help="Silent mode")
+    weather.add_argument("-v", "--video", action="store_true", help="Video background")
+    weather.add_argument("-b", "--background", action="store_true", help="Background mode")
+    weather.set_defaults(func=cmd_weather)
 
-    # --- Research Subcommand ---
-    research_parser = subparsers.add_parser("research", help="Generate a Deep Research Documentary")
-    research_parser.add_argument("topic", help="Topic to research")
-    research_parser.add_argument("-s", "--silent", action="store_true", help="Run in silent mode")
-    research_parser.add_argument("-v", "--video", action="store_true", help="Generate video background")
-    research_parser.add_argument("-b", "--background", action="store_true", help="Run in background mode")
-    research_parser.set_defaults(func=cmd_research)
+    # --- Research ---
+    research = subparsers.add_parser("research", help="Generate a Deep Research Documentary")
+    research.add_argument("topic", help="Topic")
+    research.add_argument("-s", "--silent", action="store_true", help="Silent mode")
+    research.add_argument("-v", "--video", action="store_true", help="Video background")
+    research.add_argument("-b", "--background", action="store_true", help="Background mode")
+    research.set_defaults(func=cmd_research)
+
+    # --- News Short ---
+    news = subparsers.add_parser("news-short", help="Generate a YouTube Short News Report")
+    news.add_argument("topic", help="News Topic")
+    news.add_argument("-s", "--silent", action="store_true", help="Silent mode")
+    news.add_argument("-b", "--background", action="store_true", help="Background mode")
+    news.set_defaults(func=cmd_news_short)
 
     args = parser.parse_args()
 
-    # Handle Background Mode (Global or Subcommand specific logic)
+    # Handle Background Mode
     if hasattr(args, 'background') and args.background:
-        # Construct the new command args, removing -b/--background
         clean_args = [arg for arg in sys.argv[1:] if arg not in ['-b', '--background']]
-        
-        # Use sys.argv[0] which is the path to the 'mirage' executable shim
         cmd = [sys.argv[0]] + clean_args
         
         console.print("[yellow]Respawning in background...[/yellow]")
         console.print(f"Command: {' '.join(cmd)}")
         console.print(f"Logs will be appended to [bold]{settings.log_file}[/bold]")
         
-        # Ensure log directory exists
         settings.log_file.parent.mkdir(parents=True, exist_ok=True)
-        
-        # Set unbuffered output via env var
         env = os.environ.copy()
         env["PYTHONUNBUFFERED"] = "1"
         
