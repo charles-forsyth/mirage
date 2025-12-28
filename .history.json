@@ -68,5 +68,15 @@
         "person_generation": "allow_adult",
         "negative_prompt": null,
         "image": "output/Tokyo_2025-12-27_19-11-56/background_art.png"
+    },
+    {
+        "prompt": "Cinematic slow motion animation of Paris, realistic weather, highly detailed",
+        "output_file": "output/Paris_2025-12-27_20-08-14/background_video.mp4",
+        "duration": 8,
+        "aspect_ratio": "16:9",
+        "no_audio": true,
+        "person_generation": "allow_adult",
+        "negative_prompt": null,
+        "image": "output/Paris_2025-12-27_20-08-14/background_art.png"
     }
 ]
