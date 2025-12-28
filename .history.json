@@ -137,5 +137,18 @@
         "last_image": null,
         "ref_images": null,
         "extend_video": null
+    },
+    {
+        "prompt": "Cinematic b-roll of Scientist discover real dragons in norway, vertical 9:16, seamless loop, continuous motion",
+        "output_file": "/home/chuck/Documents/Mirage/Short_Scientist_discover_real_dragons_in_norway_2025-12-28_15-47-42/visual.mp4",
+        "duration": 8,
+        "aspect_ratio": "9:16",
+        "no_audio": true,
+        "person_generation": "allow_adult",
+        "negative_prompt": null,
+        "image": "/home/chuck/Documents/Mirage/Short_Scientist_discover_real_dragons_in_norway_2025-12-28_15-47-42/visual.png",
+        "last_image": null,
+        "ref_images": null,
+        "extend_video": null
     }
 ]
