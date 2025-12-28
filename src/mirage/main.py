@@ -267,16 +267,22 @@ def cmd_news_short(args: argparse.Namespace) -> None:
         # 5. Assembly (FFmpeg)
         if not silent: status.update("[bold white]Assembling final video...[/bold white]")
         
+        # Get duration of voice to know when to stop
         duration = get_audio_duration(podcast_file)
         
-        # Fixed f-string syntax in 0.5.5
+        # Complex filter:
+        # 1. Loop video (stream_loop -1)
+        # 2. Mix audio (voice + music at 0.2 vol)
+        # 3. Cut to shortest stream (which should be voice if we limit music?) 
+        # Actually simplest way: -t duration
+        
         cmd_ffmpeg_safe = (
             f"{settings.ffmpeg_cmd} -y "
             f"-stream_loop -1 -i \"{video_file}\" "
             f"-i \"{podcast_file}\" "
             f"-stream_loop -1 -i \"{music_file}\" "
-            f"-filter_complex \"[2:a]volume=0.2[music];[1:a][music]amix=inputs=2:duration=first[audio]\" "
-            f"-map 0:v -map \"[audio]\" "
+            f"-filter_complex \"[2:a]volume=0.2[music];[1:a][music]amix=inputs=2:duration=first[audio]" "
+            f"-map 0:v -map \"[audio]" "
             f"-t {duration} "
             f"-c:v libx264 -pix_fmt yuv420p \"{final_file}\""
         )
@@ -314,26 +320,24 @@ def cmd_story(args: argparse.Namespace) -> None:
         if not silent: status.update("[bold blue]Writing story script...[/bold blue]")
         prompt = f"Write a dramatic, 3-sentence story about {topic}. The sentences should be concise and evocative."
         
-        # We use gen-tts to generate text by capturing stderr/stdout (using pipe trick if needed, or simple prompt)
-        # Actually, gen-tts doesn't output just text easily without speaking.
-        # We will use `gen-tts --generate-transcript` but pipe to /dev/null and capture stderr? No.
-        # Let's use `gen-tts` to speak it to a temp file, and parse the output for the text.
-        
         script_gen_cmd = f"echo \"{prompt}\" | {settings.gen_tts_cmd} --mode storyteller --no-play --output-file /dev/null"
         result = subprocess.run(script_gen_cmd, shell=True, capture_output=True, text=True)
         
         # Parse script
         full_out = result.stderr + "\n" + result.stdout
         script_text = ""
-        if "--- Generated Podcast Script ---" in full_out: # Storyteller mode uses same header?
-             # Actually storyteller might just output text. Let's assume it does.
-             # If not, we fallback to just using the topic as a generic script if parsing fails.
+        
+        # Check for both Podcast and Storyteller headers
+        if "--- Generated Podcast Script ---" in full_out: 
              try:
                  script_text = full_out.split("--- Generated Podcast Script ---")[1].strip()
-                 # Remove labels if any
                  script_text = re.sub(r"^(Narrator|Speaker):\s*", "", script_text, flags=re.MULTILINE).strip()
-             except:
-                 pass
+             except: pass
+        elif "--- Generated Storyteller Script ---" in full_out:
+             try:
+                 script_text = full_out.split("--- Generated Storyteller Script ---")[1].strip()
+                 script_text = re.sub(r"^(Narrator|Speaker):\s*", "", script_text, flags=re.MULTILINE).strip()
+             except: pass
         
         if not script_text:
             # Fallback script if generation parsing failed
@@ -378,8 +382,9 @@ def cmd_story(args: argparse.Namespace) -> None:
             
             part_video = output_dir / f"part{part_num}.mp4"
             
-            # Vidius Prompt
-            vid_prompt = f"Character speaking, '\"{chunk}\'', vertical 9:16"
+            # Vidius Prompt - Sanitize quotes
+            clean_chunk = chunk.replace("'", "").replace('"', "")
+            vid_prompt = f"Character speaking, '{clean_chunk}', vertical 9:16"
             
             run_command(f"{settings.vidius_cmd} \"{vid_prompt}\" -i \"{current_image}\" -o \"{part_video}\" -ar 9:16 -na", quiet=silent)
             video_parts.append(part_video)
@@ -401,14 +406,6 @@ def cmd_story(args: argparse.Namespace) -> None:
 
         # 6. Merge Audio + Video
         if not silent: status.update("[bold white]Final mix...[/bold white]")
-        # Loop video if audio is longer, or cut? Ideally they match roughly (24s).
-        # We'll rely on audio length.
-        duration = get_audio_duration(full_audio)
-        
-        # FFmpeg merge
-        # -stream_loop -1 on video if needed? No, we have 24s of video.
-        # But if audio is 30s, we might need to slow down video or loop.
-        # Let's just mux them and shortest.
         
         run_command(f"{settings.ffmpeg_cmd} -y -i \"{merged_video}\" -i \"{full_audio}\" -map 0:v -map 1:a -c:v copy -shortest \"{final_video}\"", quiet=silent)
 
