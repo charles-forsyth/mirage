@@ -197,8 +197,8 @@ def cmd_research(args: argparse.Namespace) -> None:
         if not silent:
             status.update("[bold magenta]Capturing visuals...[/bold magenta]")
         img_prompt = f"Editorial photography of {topic}, cinematic lighting, highly detailed, 8k"
-        # We can use lumina directly with a prompt string instead of piping context if context is huge
-        run_command(f"{settings.lumina_cmd} \"{img_prompt}\" --output-dir \"{output_dir}\" -f background_art.png", quiet=silent)
+        # Use --prompt explicitly to avoid argument parsing issues
+        run_command(f"{settings.lumina_cmd} --prompt \"{img_prompt}\" --output-dir \"{output_dir}\" --filename background_art.png", quiet=silent)
 
         # 5. Generate Video (Optional)
         has_video = False
