@@ -1,6 +1,6 @@
 [project]
 name = "mirage"
-version = "0.9.0"
+version = "0.9.1"
 description = "A powerful AI orchestration CLI for generating multimedia atmospheric experiences, documentaries, and stories."
 readme = "README.md"
 authors = [

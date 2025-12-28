@@ -456,7 +456,7 @@ def cmd_story(args: argparse.Namespace) -> None:
             # Extract last frame for next iteration (if not last part)
             if i < 2:
                 next_image = output_dir / f"frame{part_num}.png"
-                run_command(f"{settings.ffmpeg_cmd} -y -sseof -1 -i \"{part_video}\" -vframes 1 \"{next_image}\"", quiet=silent)
+                run_command(f"{settings.ffmpeg_cmd} -y -sseof -1 -i \"{part_video}\" -vf unsharp=5:5:1.0:5:5:0.0 -vframes 1 \"{next_image}\"", quiet=silent)
                 current_image = next_image
 
         # 4. Stitch Videos (XFade Filtergraph)
