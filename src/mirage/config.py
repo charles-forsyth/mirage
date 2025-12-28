@@ -12,6 +12,8 @@ class Settings(BaseSettings):
     convert_cmd: str = "convert"
     deep_research_cmd: str = "deep-research"
     gen_music_cmd: str = "gen-music"
+    ffmpeg_cmd: str = "ffmpeg"
+    ffprobe_cmd: str = "ffprobe"
     
     # Default Location
     default_location: str = "home"
