@@ -98,5 +98,18 @@
         "person_generation": "allow_adult",
         "negative_prompt": null,
         "image": "/home/chuck/Documents/Mirage/Research_The_Future_of_Space_Travel_2025-12-27_21-55-11/background_art.png"
+    },
+    {
+        "prompt": "Cinematic slow motion animation of The Lost City of Atlantis, documentary style",
+        "output_file": "/home/chuck/Documents/Mirage/Research_The_Lost_City_of_Atlantis_2025-12-27_22-21-47/background_video.mp4",
+        "duration": 8,
+        "aspect_ratio": "16:9",
+        "no_audio": true,
+        "person_generation": "allow_adult",
+        "negative_prompt": null,
+        "image": "/home/chuck/Documents/Mirage/Research_The_Lost_City_of_Atlantis_2025-12-27_22-21-47/background_art.png",
+        "last_image": null,
+        "ref_images": null,
+        "extend_video": null
     }
 ]
