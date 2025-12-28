@@ -93,7 +93,7 @@ def cmd_weather(args: argparse.Namespace) -> None:
             f"{settings.atmos_cmd} \"{location}\" >> \"{context_file}\" && "
             f"{settings.atmos_cmd} stars \"{location}\" >> \"{context_file}\" && "
             f"{settings.atmos_cmd} forecast \"{location}\" >> \"{context_file}\" && "
-            f"{settings.atmos_cmd} forecast \"{location}\" --hourly >> \"{context_file}""
+            f"{settings.atmos_cmd} forecast \"{location}\" --hourly >> \"{context_file}\""
         )
         run_command(cmd_gather, quiet=True) 
 
