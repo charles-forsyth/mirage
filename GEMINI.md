@@ -4,50 +4,52 @@
 **Mirage** is an automated generative art pipeline that creates immersive "Atmospheric Forecasts." By combining real-time weather data, AI-scripted podcasts, generative imagery, and seamless video animation, Mirage builds a complete sensory experience for any location on Earth.
 
 ## Key Files
-*   **`mirage.py`**: The core orchestration engine. It executes the following pipeline:
-    1.  **Data Gathering**: Fetches real-time weather, astronomy, and alerts using `atmos`.
-    2.  **Audio Synthesis**: Generates a "Deep Dive" style weather podcast (`podcast.mp3`) using `gen-tts`.
-    3.  **Visual Generation**: Creates a hyper-realistic background image (`background_art.png`) using `lumina`.
-    4.  **Motion Synthesis** (Optional): Animates the scene into a seamless loop (`background_video.mp4`) using `vidius`.
-    5.  **Experience Assembly**: Compiles everything into a standalone `index.html` with synchronized scrolling data.
-*   **`output/`**: Directory where all generated experiences are stored, organized by location and timestamp.
+*   **`src/mirage/main.py`**: The core orchestration engine and CLI entry point.
+*   **`src/mirage/config.py`**: Pydantic-based configuration management.
+*   **`src/mirage/templates/`**: Jinja2 templates for HTML generation.
+*   **`output/`**: (Default) Directory where generated experiences are stored.
 
 ## Usage
 
-### Basic Usage
-Generate a standard experience (Audio + Image + Data) for your home location:
+### Weather Experience
+Generate a multimedia weather report with podcast, art, and optional video.
+
+**Basic Usage:**
 ```bash
-./mirage.py
+mirage weather
 ```
 
-### Custom Location
-Generate an experience for a specific place:
+**Custom Location:**
 ```bash
-./mirage.py -l "Kyoto, Japan"
+mirage weather -l "Kyoto, Japan"
 ```
 
-### Video Mode
+**Video Mode:**
 Enable the video generation step (takes longer, creates a motion background):
 ```bash
-./mirage.py -l "Times Square" -v
+mirage weather -l "Times Square" -v
 ```
 
-### Background Mode
-Run the process in the background, detaching it from the terminal immediately. Output is redirected to `mirage.log`.
+**Background Mode:**
+Run in the background, detached from the terminal:
 ```bash
-./mirage.py -l "Paris" -v -s -b
+mirage weather -l "Paris" -v -s -b
 ```
 
-### Silent Mode
-Run without verbose output (useful for background tasks or cron jobs):
+**Silent Mode:**
+Run without verbose output:
 ```bash
-./mirage.py -s
+mirage weather -s
 ```
 
-### Full Example
-Generate a full video experience for London, silently, in the background (using manual nohup):
+## Configuration
+Mirage looks for a configuration file at `~/.config/mirage/.env`.
+You can override default settings, tool paths, and output directories there.
+
+Example `.env`:
 ```bash
-nohup ./mirage.py -l "London, UK" -v -s > mirage.log 2>&1 &
+DEFAULT_LOCATION="New York, NY"
+OUTPUT_BASE_DIR="/home/user/Documents/Mirage"
 ```
 
 ## Dependencies
