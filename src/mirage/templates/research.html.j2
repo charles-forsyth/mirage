@@ -81,7 +81,8 @@
             line-height: 1.8;
             white-space: pre-wrap; /* Preserve markdown formatting if raw */
             max-width: 800px;
-            animation: scroll-up 120s linear infinite; /* Slower scroll for reading */
+            transform: translateY(100%); /* Start below the visible area */
+            will-change: transform;
         }
         
         /* Markdown Headers override */
@@ -173,12 +174,19 @@
         audio.addEventListener('timeupdate', () => {
             if (audio.duration) {
                 const percentage = audio.currentTime / audio.duration;
-                // Calculate max scrollable distance
-                const maxScroll = textContent.scrollHeight - contentContainer.clientHeight + 400; // Buffer
-                const scrollPos = maxScroll * percentage;
+                
+                // Calculate scroll geometry
+                const containerHeight = contentContainer.clientHeight;
+                const contentHeight = textContent.scrollHeight;
+                
+                // Total distance to travel: Start from fully below (containerHeight) to fully above (-contentHeight)
+                const totalDistance = containerHeight + contentHeight;
+                
+                // Current Position
+                const currentY = containerHeight - (totalDistance * percentage);
                 
                 textContent.style.animation = 'none';
-                textContent.style.transform = `translateY(-${scrollPos}px)`;
+                textContent.style.transform = `translateY(${currentY}px)`;
             }
         });
 
