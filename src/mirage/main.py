@@ -276,6 +276,7 @@ def cmd_news_short(args: argparse.Namespace) -> None:
         # 3. Cut to shortest stream (which should be voice if we limit music?) 
         # Actually simplest way: -t duration
         
+        # Fix f-string syntax in 0.7.1
         cmd_ffmpeg_safe = (
             f"{settings.ffmpeg_cmd} -y "
             f"-stream_loop -1 -i \"{video_file}\" "
@@ -291,6 +292,64 @@ def cmd_news_short(args: argparse.Namespace) -> None:
 
     if not silent:
         console.print(Panel(f"[bold green]News Short Ready![/bold green]\nFile: [link=file://{final_file.absolute()}]{final_file}[/link]", border_style="green"))
+
+def cmd_character(args: argparse.Namespace) -> None:
+    """Manages the Character Library."""
+    action = args.action
+    lib_dir = settings.character_library_dir
+    lib_dir.mkdir(parents=True, exist_ok=True)
+
+    if action == "list":
+        chars = sorted(lib_dir.glob("*.png"))
+        if not chars:
+            console.print("[yellow]Library is empty.[/yellow]")
+        else:
+            console.print("[bold green]Character Library:[/bold green]")
+            for c in chars:
+                console.print(f"  - {c.stem}")
+
+    elif action == "add":
+        if not args.name or not args.image:
+            console.print("[red]Error: --name and --image required for add.[/red]")
+            return
+        src = Path(args.image)
+        if not src.exists():
+            console.print(f"[red]Error: Image not found: {src}[/red]")
+            return
+        dest = lib_dir / f"{args.name}.png"
+        shutil.copy(src, dest)
+        console.print(f"[green]Added character '{args.name}' to library.[/green]")
+
+    elif action == "remove":
+        if not args.name:
+            console.print("[red]Error: --name required for remove.[/red]")
+            return
+        dest = lib_dir / f"{args.name}.png"
+        if dest.exists():
+            dest.unlink()
+            console.print(f"[green]Removed character '{args.name}'.[/green]")
+        else:
+            console.print(f"[yellow]Character '{args.name}' not found.[/yellow]")
+    
+    elif action == "create":
+        if not args.name or not args.prompt:
+            console.print("[red]Error: --name and --prompt required for create.[/red]")
+            return
+        
+        dest = lib_dir / f"{args.name}.png"
+        if dest.exists():
+            console.print(f"[yellow]Character '{args.name}' already exists. Overwriting...[/yellow]")
+        
+        console.print(f"[magenta]Generating character '{args.name}' with Lumina...[/magenta]")
+        lumina_prompt = f"Vertical 9:16 portrait of {args.prompt}, highly detailed, cinematic lighting, 8k"
+        
+        # Run lumina
+        run_command(f"{settings.lumina_cmd} --prompt \"{lumina_prompt}\" --aspect-ratio 9:16 --output-dir \"{lib_dir}\" --filename \"{args.name}.png\"")
+        
+        if dest.exists():
+            console.print(f"[green]Character '{args.name}' created successfully.[/green]")
+        else:
+            console.print("[red]Failed to create character.[/red]")
 
 def cmd_story(args: argparse.Namespace) -> None:
     """Generates a Multi-Part Story Video for Shorts."""
@@ -332,12 +391,14 @@ def cmd_story(args: argparse.Namespace) -> None:
              try:
                  script_text = full_out.split("--- Generated Podcast Script ---")[1].strip()
                  script_text = re.sub(r"^(Narrator|Speaker):\s*", "", script_text, flags=re.MULTILINE).strip()
-             except: pass
+             except:
+                 pass
         elif "--- Generated Storyteller Script ---" in full_out:
              try:
                  script_text = full_out.split("--- Generated Storyteller Script ---")[1].strip()
                  script_text = re.sub(r"^(Narrator|Speaker):\s*", "", script_text, flags=re.MULTILINE).strip()
-             except: pass
+             except:
+                 pass
         
         if not script_text:
             # Fallback script if generation parsing failed
@@ -369,8 +430,16 @@ def cmd_story(args: argparse.Namespace) -> None:
 
         # 3. Base Character
         if not silent: status.update("[bold magenta]Casting character...[/bold magenta]")
-        char_prompt = f"Vertical 9:16 portrait of {character_desc if character_desc else topic}, highly detailed, cinematic lighting, 8k"
-        run_command(f"{settings.lumina_cmd} --prompt \"{char_prompt}\" --aspect-ratio 9:16 --output-dir \"{output_dir}\" --filename base_char.png", quiet=silent)
+        
+        # Check library
+        char_lib_path = settings.character_library_dir / f"{character_desc}.png"
+        
+        if character_desc and char_lib_path.exists():
+             shutil.copy(char_lib_path, base_image)
+             if not silent: console.print(f"[green]Using character from library: {character_desc}[/green]")
+        else:
+             char_prompt = f"Vertical 9:16 portrait of {character_desc if character_desc else topic}, highly detailed, cinematic lighting, 8k"
+             run_command(f"{settings.lumina_cmd} --prompt \"{char_prompt}\" --aspect-ratio 9:16 --output-dir \"{output_dir}\" --filename base_char.png", quiet=silent)
         
         current_image = base_image
         video_parts = []
@@ -447,6 +516,14 @@ def main() -> None:
     story.add_argument("-s", "--silent", action="store_true", help="Silent mode")
     story.add_argument("-b", "--background", action="store_true", help="Background mode")
     story.set_defaults(func=cmd_story)
+
+    # --- Character Library ---
+    char_parser = subparsers.add_parser("character", help="Manage Character Library")
+    char_parser.add_argument("action", choices=["list", "add", "remove", "create"], help="Action")
+    char_parser.add_argument("name", nargs="?", help="Character Name") # Positional name for convenience
+    char_parser.add_argument("-i", "--image", help="Path to existing image")
+    char_parser.add_argument("-p", "--prompt", help="Prompt for creation")
+    char_parser.set_defaults(func=cmd_character)
 
     args = parser.parse_args()
 
