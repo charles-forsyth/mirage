@@ -1,0 +1,72 @@
+[
+    {
+        "prompt": "Cinematic slow motion animation of New Orleans, realistic weather, highly detailed",
+        "output_file": "output/New_Orleans_2025-12-27_18-05-23/background_video.mp4",
+        "duration": 8,
+        "aspect_ratio": "16:9",
+        "no_audio": true,
+        "person_generation": "allow_adult",
+        "negative_prompt": null,
+        "image": "output/New_Orleans_2025-12-27_18-05-23/background_art.png"
+    },
+    {
+        "prompt": "Cinematic slow motion animation of Chicago, realistic weather, highly detailed",
+        "output_file": "output/Chicago_2025-12-27_18-11-47/background_video.mp4",
+        "duration": 8,
+        "aspect_ratio": "16:9",
+        "no_audio": true,
+        "person_generation": "allow_adult",
+        "negative_prompt": null,
+        "image": "output/Chicago_2025-12-27_18-11-47/background_art.png"
+    },
+    {
+        "prompt": "Cinematic slow motion animation of home, realistic weather, highly detailed",
+        "output_file": "output/home_2025-12-27_18-23-24/background_video.mp4",
+        "duration": 8,
+        "aspect_ratio": "16:9",
+        "no_audio": true,
+        "person_generation": "allow_adult",
+        "negative_prompt": null,
+        "image": "output/home_2025-12-27_18-23-24/background_art.png"
+    },
+    {
+        "prompt": "Cinematic slow motion animation of Salton Sea Ca, realistic weather, highly detailed",
+        "output_file": "output/Salton_Sea_Ca_2025-12-27_18-39-54/background_video.mp4",
+        "duration": 8,
+        "aspect_ratio": "16:9",
+        "no_audio": true,
+        "person_generation": "allow_adult",
+        "negative_prompt": null,
+        "image": "output/Salton_Sea_Ca_2025-12-27_18-39-54/background_art.png"
+    },
+    {
+        "prompt": "Cinematic slow motion animation of London, UK, realistic weather, highly detailed",
+        "output_file": "output/London,_UK_2025-12-27_19-00-47/background_video.mp4",
+        "duration": 8,
+        "aspect_ratio": "16:9",
+        "no_audio": true,
+        "person_generation": "allow_adult",
+        "negative_prompt": null,
+        "image": "output/London,_UK_2025-12-27_19-00-47/background_art.png"
+    },
+    {
+        "prompt": "Cinematic slow motion animation of Miami, realistic weather, highly detailed",
+        "output_file": "output/Miami_2025-12-27_19-08-40/background_video.mp4",
+        "duration": 8,
+        "aspect_ratio": "16:9",
+        "no_audio": true,
+        "person_generation": "allow_adult",
+        "negative_prompt": null,
+        "image": "output/Miami_2025-12-27_19-08-40/background_art.png"
+    },
+    {
+        "prompt": "Cinematic slow motion animation of Tokyo, realistic weather, highly detailed",
+        "output_file": "output/Tokyo_2025-12-27_19-11-56/background_video.mp4",
+        "duration": 8,
+        "aspect_ratio": "16:9",
+        "no_audio": true,
+        "person_generation": "allow_adult",
+        "negative_prompt": null,
+        "image": "output/Tokyo_2025-12-27_19-11-56/background_art.png"
+    }
+]

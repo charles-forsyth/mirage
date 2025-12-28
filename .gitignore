@@ -1,0 +1,13 @@
+output/
+*.log
+__pycache__/
+*.mp3
+*.png
+*.mp4
+index.html
+context.txt
+.venv/
+.env
+.history.json
+out.json
+run.log
