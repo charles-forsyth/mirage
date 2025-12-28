@@ -93,7 +93,7 @@ def cmd_weather(args: argparse.Namespace) -> None:
             f"{settings.atmos_cmd} \"{location}\" >> \"{context_file}\" && "
             f"{settings.atmos_cmd} stars \"{location}\" >> \"{context_file}\" && "
             f"{settings.atmos_cmd} forecast \"{location}\" >> \"{context_file}\" && "
-            f"{settings.atmos_cmd} forecast \"{location}\" --hourly >> \"{context_file}\""
+            f"{settings.atmos_cmd} forecast \"{location}\" --hourly >> \"{context_file}""
         )
         run_command(cmd_gather, quiet=True) 
 
@@ -276,14 +276,13 @@ def cmd_news_short(args: argparse.Namespace) -> None:
         # 3. Cut to shortest stream (which should be voice if we limit music?) 
         # Actually simplest way: -t duration
         
-        # Fix f-string syntax in 0.7.1
         cmd_ffmpeg_safe = (
             f"{settings.ffmpeg_cmd} -y "
             f"-stream_loop -1 -i \"{video_file}\" "
             f"-i \"{podcast_file}\" "
             f"-stream_loop -1 -i \"{music_file}\" "
             f"-filter_complex \"[2:a]volume=0.2[music];[1:a][music]amix=inputs=2:duration=first[audio]\" "
-            f"-map 0:v -map \"[audio]\" "
+            f"-map 0:v -map \"[audio]" "
             f"-t {duration} "
             f"-c:v libx264 -pix_fmt yuv420p \"{final_file}\""
         )
@@ -370,13 +369,13 @@ def cmd_story(args: argparse.Namespace) -> None:
     full_audio = output_dir / "full_audio.mp3"
     base_image = output_dir / "base_char.png"
     concat_list_file = output_dir / "concat_list.txt"
-    merged_video = output_dir / "merged_video.mp4"
-    final_video = output_dir / f"Mirage_Story_{sanitized_topic}.mp4"
+    merged_video = output_dir / "Mirage_Story_Final.mp4"
 
     with console.status(f"[bold green]Weaving story for: {topic}...[/bold green]", spinner="dots") as status:
         
         # 1. Generate Script (3 Sentences)
-        if not silent: status.update("[bold blue]Writing story script...[/bold blue]")
+        if not silent: 
+            status.update("[bold blue]Writing story script...[/bold blue]")
         prompt = f"Write a dramatic, 3-sentence story about {topic}. The sentences should be concise and evocative."
         
         script_gen_cmd = f"echo \"{prompt}\" | {settings.gen_tts_cmd} --mode storyteller --no-play --output-file /dev/null"
@@ -391,13 +390,13 @@ def cmd_story(args: argparse.Namespace) -> None:
              try:
                  script_text = full_out.split("--- Generated Podcast Script ---")[1].strip()
                  script_text = re.sub(r"^(Narrator|Speaker):\s*", "", script_text, flags=re.MULTILINE).strip()
-             except:
+             except Exception: 
                  pass
         elif "--- Generated Storyteller Script ---" in full_out:
              try:
                  script_text = full_out.split("--- Generated Storyteller Script ---")[1].strip()
                  script_text = re.sub(r"^(Narrator|Speaker):\s*", "", script_text, flags=re.MULTILINE).strip()
-             except:
+             except Exception: 
                  pass
         
         if not script_text:
@@ -421,22 +420,21 @@ def cmd_story(args: argparse.Namespace) -> None:
         chunks.append(current_chunk.strip())
         
         # Ensure exactly 3 chunks (pad or trim)
-        while len(chunks) < 3: chunks.append("...")
+        while len(chunks) < 3: 
+            chunks.append("...")
         chunks = chunks[:3]
 
-        # 2. Generate Full Audio
-        if not silent: status.update("[bold blue]Recording narration...[/bold blue]")
-        run_command(f"cat \"{script_file}\" | {settings.gen_tts_cmd} --mode storyteller --no-play --audio-format MP3 --output-file \"{full_audio}\"", quiet=silent)
-
-        # 3. Base Character
-        if not silent: status.update("[bold magenta]Casting character...[/bold magenta]")
+        # 2. Base Character
+        if not silent: 
+            status.update("[bold magenta]Casting character...[/bold magenta]")
         
         # Check library
         char_lib_path = settings.character_library_dir / f"{character_desc}.png"
         
         if character_desc and char_lib_path.exists():
              shutil.copy(char_lib_path, base_image)
-             if not silent: console.print(f"[green]Using character from library: {character_desc}[/green]")
+             if not silent: 
+                 console.print(f"[green]Using character from library: {character_desc}[/green]")
         else:
              char_prompt = f"Vertical 9:16 portrait of {character_desc if character_desc else topic}, highly detailed, cinematic lighting, 8k"
              run_command(f"{settings.lumina_cmd} --prompt \"{char_prompt}\" --aspect-ratio 9:16 --output-dir \"{output_dir}\" --filename base_char.png", quiet=silent)
@@ -444,42 +442,45 @@ def cmd_story(args: argparse.Namespace) -> None:
         current_image = base_image
         video_parts = []
 
-        # 4. Loop Generation (3 Parts)
+        # 3. Loop Generation (3 Parts with Native Audio)
         for i, chunk in enumerate(chunks):
             part_num = i + 1
-            if not silent: status.update(f"[bold cyan]Animating Part {part_num}/3...[/bold cyan]")
+            if not silent: 
+                status.update(f"[bold cyan]Animating Part {part_num}/3...[/bold cyan]")
             
             part_video = output_dir / f"part{part_num}.mp4"
             
             # Vidius Prompt - Sanitize quotes
             clean_chunk = chunk.replace("'", "").replace('"', "")
-            vid_prompt = f"Character speaking, '{clean_chunk}', vertical 9:16"
             
-            run_command(f"{settings.vidius_cmd} \"{vid_prompt}\" -i \"{current_image}\" -o \"{part_video}\" -ar 9:16 -na", quiet=silent)
+            # Construct prompt for speaking character
+            # If we have a character desc, use it to prompt consistency
+            speaker_desc = character_desc if character_desc else "The character"
+            vid_prompt = f"{speaker_desc} speaking: '{clean_chunk}', vertical 9:16"
+            
+            # Generate video (with audio this time!)
+            run_command(f"{settings.vidius_cmd} \"{vid_prompt}\" -i \"{current_image}\" -o \"{part_video}\" -ar 9:16", quiet=silent)
             video_parts.append(part_video)
             
             # Extract last frame for next iteration (if not last part)
             if i < 2:
                 next_image = output_dir / f"frame{part_num}.png"
-                # ffmpeg extract last frame
                 run_command(f"{settings.ffmpeg_cmd} -y -sseof -1 -i \"{part_video}\" -vframes 1 \"{next_image}\"", quiet=silent)
                 current_image = next_image
 
-        # 5. Stitch Videos
-        if not silent: status.update("[bold white]Stitching video segments...[/bold white]")
+        # 4. Stitch Videos (Concatenate video + audio)
+        if not silent: 
+            status.update("[bold white]Stitching video segments...[/bold white]")
+        
         with open(concat_list_file, "w") as f:
             for v in video_parts:
                 f.write(f"file '{v.name}'\n")
         
+        # Concatenate using concat demuxer (efficient, no re-encode usually)
         run_command(f"{settings.ffmpeg_cmd} -y -f concat -safe 0 -i \"{concat_list_file}\" -c copy \"{merged_video}\"", quiet=silent)
 
-        # 6. Merge Audio + Video
-        if not silent: status.update("[bold white]Final mix...[/bold white]")
-        
-        run_command(f"{settings.ffmpeg_cmd} -y -i \"{merged_video}\" -i \"{full_audio}\" -map 0:v -map 1:a -c:v copy -shortest \"{final_video}\"", quiet=silent)
-
     if not silent:
-        console.print(Panel(f"[bold green]Story Ready![/bold green]\nFile: [link=file://{final_video.absolute()}]{final_video}[/link]", border_style="green"))
+        console.print(Panel(f"[bold green]Story Ready![/bold green]\nFile: [link=file://{merged_video.absolute()}]{merged_video}[/link]", border_style="green"))
 
 
 def main() -> None:
