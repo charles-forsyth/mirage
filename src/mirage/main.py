@@ -4,9 +4,7 @@ import os
 import sys
 import argparse
 import datetime
-import shutil
 from pathlib import Path
-from typing import Optional
 
 from rich.console import Console
 from rich.panel import Panel
@@ -61,11 +59,11 @@ def cmd_weather(args: argparse.Namespace) -> None:
     timestamp = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
     
     # Use configured base directory
-    output_dir = settings.output_base_dir / f"{sanitized_loc}_{timestamp}"
+    output_dir = settings.output_base_dir / f"Weather_{sanitized_loc}_{timestamp}"
     output_dir.mkdir(parents=True, exist_ok=True)
 
     if not silent:
-        console.print(Panel(f"[bold green]Starting Mirage Generation[/bold green]\nLocation: [cyan]{location}[/cyan]\nOutput: [yellow]{output_dir}[/yellow]", title="Mirage"))
+        console.print(Panel(f"[bold green]Starting Mirage: Weather[/bold green]\nLocation: [cyan]{location}[/cyan]\nOutput: [yellow]{output_dir}[/yellow]", title="Mirage"))
 
     # Define paths
     context_file = output_dir / "context.txt"
@@ -87,7 +85,7 @@ def cmd_weather(args: argparse.Namespace) -> None:
             f"{settings.atmos_cmd} forecast \"{location}\" >> \"{context_file}\" && "
             f"{settings.atmos_cmd} forecast \"{location}\" --hourly >> \"{context_file}\""
         )
-        run_command(cmd_gather, quiet=True) # Always quiet for data gathering to avoid spamming the console with weather data
+        run_command(cmd_gather, quiet=True) 
 
         # Read context
         context_text = context_file.read_text(encoding="utf-8")
@@ -139,6 +137,100 @@ def cmd_weather(args: argparse.Namespace) -> None:
     if not silent:
         console.print(Panel(f"[bold green]Experience Ready![/bold green]\nOpen: [link=file://{html_file.absolute()}]{html_file}[/link]", border_style="green"))
 
+def cmd_research(args: argparse.Namespace) -> None:
+    """
+    Orchestrates the Deep Research Documentary generation.
+    """
+    topic = args.topic
+    generate_video = args.video
+    silent = args.silent
+    
+    # Setup Output Directory
+    sanitized_topic = topic.replace(" ", "_").replace("/", "-")[:50] # Limit length
+    timestamp = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+    output_dir = settings.output_base_dir / f"Research_{sanitized_topic}_{timestamp}"
+    output_dir.mkdir(parents=True, exist_ok=True)
+
+    if not silent:
+        console.print(Panel(f"[bold green]Starting Mirage: Research Documentary[/bold green]\nTopic: [cyan]{topic}[/cyan]\nOutput: [yellow]{output_dir}[/yellow]", title="Mirage"))
+
+    # Define paths
+    context_file = output_dir / "research.md"
+    podcast_file = output_dir / "podcast.mp3"
+    music_file = output_dir / "music.mp3"
+    image_file = output_dir / "background_art.png"
+    video_file = output_dir / "background_video.mp4"
+    html_file = output_dir / "index.html"
+
+    with console.status(f"[bold green]Conducting deep research on: {topic}...[/bold green]", spinner="dots") as status:
+        
+        # 1. Deep Research
+        if not silent:
+            status.update(f"[bold green]Conducting deep research on: {topic}...[/bold green]")
+        # Assuming deep-research output flag works as expected (json/md?) - defaults to printing to stdout or interactive?
+        # deep-research doesn't have an easy "output to file" flag in the help I saw earlier, 
+        # it has --output but it says "prices.md" in example 3.
+        # Example 1: deep-research research "Topic" --stream (no output file?)
+        # Example 3: deep-research research "Topic" --output prices.md
+        # So we use --output.
+        run_command(f"{settings.deep_research_cmd} research \"{topic}\" --output \"{context_file}\"", quiet=silent)
+        
+        if not context_file.exists():
+            console.print("[red]Deep Research failed to produce output.[/red]")
+            return
+
+        # Read context
+        context_text = context_file.read_text(encoding="utf-8")
+
+        # 2. Generate Audio (Podcast)
+        if not silent:
+            status.update("[bold blue]Scripting and recording documentary...[/bold blue]")
+        run_command(f"cat \"{context_file}\" | {settings.gen_tts_cmd} --podcast --no-play --audio-format MP3 --output-file \"{podcast_file}\"", quiet=silent)
+
+        # 3. Generate Music (Score)
+        if not silent:
+            status.update("[bold yellow]Composing original score...[/bold yellow]")
+        music_prompt = f"Ambient documentary background music, {topic}, cinematic score"
+        run_command(f"{settings.gen_music_cmd} \"{music_prompt}\" --output \"{music_file}\" --format mp3 --duration 30", quiet=silent) # 30s loop?
+
+        # 4. Generate Image
+        if not silent:
+            status.update("[bold magenta]Capturing visuals...[/bold magenta]")
+        img_prompt = f"Editorial photography of {topic}, cinematic lighting, highly detailed, 8k"
+        # We can use lumina directly with a prompt string instead of piping context if context is huge
+        run_command(f"{settings.lumina_cmd} \"{img_prompt}\" --output-dir \"{output_dir}\" -f background_art.png", quiet=silent)
+
+        # 5. Generate Video (Optional)
+        has_video = False
+        if generate_video:
+            if image_file.exists():
+                if not silent:
+                    status.update("[bold cyan]Animating scene...[/bold cyan]")
+                vid_prompt = f"Cinematic slow motion animation of {topic}, documentary style"
+                run_command(f"{settings.vidius_cmd} \"{vid_prompt}\" -i \"{image_file}\" -o \"{video_file}\" -na", quiet=silent)
+                has_video = video_file.exists()
+
+        # 6. Generate HTML
+        if not silent:
+            status.update("[bold white]Publishing documentary...[/bold white]")
+        
+        env = Environment(loader=FileSystemLoader(Path(__file__).parent / "templates"))
+        template = env.get_template("research.html.j2")
+        
+        html_content = template.render(
+            topic=topic,
+            context_text=context_text,
+            image_file=image_file.name,
+            audio_file=podcast_file.name,
+            music_file=music_file.name if music_file.exists() else None,
+            video_file=video_file.name if has_video else None
+        )
+        
+        html_file.write_text(html_content, encoding="utf-8")
+
+    if not silent:
+        console.print(Panel(f"[bold green]Documentary Ready![/bold green]\nOpen: [link=file://{html_file.absolute()}]{html_file}[/link]", border_style="green"))
+
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="Mirage: AI Experience Generator")
@@ -152,10 +244,17 @@ def main() -> None:
     weather_parser.add_argument("-b", "--background", action="store_true", help="Run in background mode (detach from terminal)")
     weather_parser.set_defaults(func=cmd_weather)
 
+    # --- Research Subcommand ---
+    research_parser = subparsers.add_parser("research", help="Generate a Deep Research Documentary")
+    research_parser.add_argument("topic", help="Topic to research")
+    research_parser.add_argument("-s", "--silent", action="store_true", help="Run in silent mode")
+    research_parser.add_argument("-v", "--video", action="store_true", help="Generate video background")
+    research_parser.add_argument("-b", "--background", action="store_true", help="Run in background mode")
+    research_parser.set_defaults(func=cmd_research)
+
     args = parser.parse_args()
 
     # Handle Background Mode (Global or Subcommand specific logic)
-    # Since arguments are attached to the subparser, we check args.background if it exists.
     if hasattr(args, 'background') and args.background:
         # Construct the new command args, removing -b/--background
         clean_args = [arg for arg in sys.argv[1:] if arg not in ['-b', '--background']]
@@ -190,8 +289,6 @@ def main() -> None:
         sys.exit(130)
     except Exception as e:
         console.print(f"\n[bold red]Fatal Error:[/bold red] {e}")
-        # We can't easily check for silent mode here globally as it's subcommand specific
-        # But we print the exception anyway for fatal errors.
         console.print_exception()
         sys.exit(1)
 
