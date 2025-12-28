@@ -4,7 +4,10 @@ import os
 import sys
 import argparse
 import datetime
+import shutil
+import re
 from pathlib import Path
+from typing import Optional
 
 from rich.console import Console
 from rich.panel import Panel
@@ -83,7 +86,7 @@ def cmd_weather(args: argparse.Namespace) -> None:
             f"{settings.atmos_cmd} \"{location}\" >> \"{context_file}\" && "
             f"{settings.atmos_cmd} stars \"{location}\" >> \"{context_file}\" && "
             f"{settings.atmos_cmd} forecast \"{location}\" >> \"{context_file}\" && "
-            f"{settings.atmos_cmd} forecast \"{location}\" --hourly >> \"{context_file}\""
+            f"{settings.atmos_cmd} forecast \"{location}\" --hourly >> \"{context_file}""
         )
         run_command(cmd_gather, quiet=True) 
 
@@ -167,12 +170,7 @@ def cmd_research(args: argparse.Namespace) -> None:
         # 1. Deep Research
         if not silent:
             status.update(f"[bold green]Conducting deep research on: {topic}...[/bold green]")
-        # Assuming deep-research output flag works as expected (json/md?) - defaults to printing to stdout or interactive?
-        # deep-research doesn't have an easy "output to file" flag in the help I saw earlier, 
-        # it has --output but it says "prices.md" in example 3.
-        # Example 1: deep-research research "Topic" --stream (no output file?)
-        # Example 3: deep-research research "Topic" --output prices.md
-        # So we use --output.
+        
         run_command(f"{settings.deep_research_cmd} research \"{topic}\" --output \"{context_file}\"", quiet=silent)
         
         if not context_file.exists():
@@ -182,10 +180,38 @@ def cmd_research(args: argparse.Namespace) -> None:
         # Read context
         context_text = context_file.read_text(encoding="utf-8")
 
-        # 2. Generate Audio (Podcast)
+        # 2. Generate Audio (Podcast) & Capture Script
         if not silent:
             status.update("[bold blue]Scripting and recording documentary...[/bold blue]")
-        run_command(f"cat \"{context_file}\" | {settings.gen_tts_cmd} --podcast --no-play --audio-format MP3 --output-file \"{podcast_file}\"", quiet=silent)
+        
+        # We need to capture the output to get the script, but run_command only captures if quiet=True
+        # We'll use subprocess manually here to guarantee capture
+        tts_cmd = f"cat \"{context_file}\" | {settings.gen_tts_cmd} --podcast --no-play --audio-format MP3 --output-file \"{podcast_file}\""
+        
+        result = subprocess.run(tts_cmd, shell=True, capture_output=True, text=True)
+        if result.returncode != 0:
+            console.print(f"[bold red]Error generating audio:[/bold red] {result.stderr}")
+            # Continue mostly, or fail? Let's fail hard if no audio
+            if not podcast_file.exists():
+                return
+        
+        # Print output if not silent (so user sees progress/script if desired)
+        if not silent:
+            console.print(result.stdout)
+            
+        # Parse Script from Output
+        full_output = result.stdout
+        script_display_text = context_text # Default to research notes if parsing fails
+        
+        if "--- Generated Podcast Script ---" in full_output:
+            try:
+                raw_script = full_output.split("--- Generated Podcast Script ---")[1]
+                # Clean up: Remove Speaker labels (Host:, Guest:, etc)
+                # Regex: Start of line, (Host|Guest|Speaker \w+):, space
+                clean_script = re.sub(r"^(Host|Guest|Speaker \w+):\s*", "", raw_script, flags=re.MULTILINE).strip()
+                script_display_text = clean_script
+            except Exception as e:
+                console.print(f"[yellow]Warning: Could not parse script from output ({e}). Using raw notes.[/yellow]")
 
         # 3. Generate Music (Score)
         if not silent:
@@ -197,7 +223,6 @@ def cmd_research(args: argparse.Namespace) -> None:
         if not silent:
             status.update("[bold magenta]Capturing visuals...[/bold magenta]")
         img_prompt = f"Editorial photography of {topic}, cinematic lighting, highly detailed, 8k"
-        # Use --prompt explicitly to avoid argument parsing issues
         run_command(f"{settings.lumina_cmd} --prompt \"{img_prompt}\" --output-dir \"{output_dir}\" --filename background_art.png", quiet=silent)
 
         # 5. Generate Video (Optional)
@@ -219,7 +244,7 @@ def cmd_research(args: argparse.Namespace) -> None:
         
         html_content = template.render(
             topic=topic,
-            context_text=context_text,
+            context_text=script_display_text,
             image_file=image_file.name,
             audio_file=podcast_file.name,
             music_file=music_file.name if music_file.exists() else None,

@@ -105,7 +105,9 @@
 </head>
 <body>
 
+    {% if not video_file %}
     <div class="image-container" id="bgImage"></div>
+    {% endif %}
     
     {% if video_file %}
     <div class="video-container" id="videoContainer">
