@@ -179,7 +179,7 @@ wheels = [
 
 [[package]]
 name = "mirage"
-version = "0.8.2"
+version = "0.8.8"
 source = { editable = "." }
 dependencies = [
     { name = "jinja2" },
