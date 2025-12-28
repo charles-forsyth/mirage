@@ -149,7 +149,9 @@ def main() -> None:
     if args.background:
         # Construct the new command args, removing -b/--background
         clean_args = [arg for arg in sys.argv[1:] if arg not in ['-b', '--background']]
-        cmd = [sys.executable, "-u"] + clean_args # -u for unbuffered
+        
+        # Use sys.argv[0] which is the path to the 'mirage' executable shim
+        cmd = [sys.argv[0]] + clean_args
         
         console.print("[yellow]Respawning in background...[/yellow]")
         console.print(f"Command: {' '.join(cmd)}")
@@ -158,8 +160,12 @@ def main() -> None:
         # Ensure log directory exists
         settings.log_file.parent.mkdir(parents=True, exist_ok=True)
         
+        # Set unbuffered output via env var
+        env = os.environ.copy()
+        env["PYTHONUNBUFFERED"] = "1"
+        
         with open(settings.log_file, "a") as log_file:
-             subprocess.Popen(cmd, stdout=log_file, stderr=log_file, start_new_session=True)
+             subprocess.Popen(cmd, stdout=log_file, stderr=log_file, start_new_session=True, env=env)
              
         console.print("[green]Mirage is running in the background.[/green]")
         sys.exit(0)
