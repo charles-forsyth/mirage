@@ -10,6 +10,8 @@ class Settings(BaseSettings):
     lumina_cmd: str = "lumina"
     vidius_cmd: str = "vidius"
     convert_cmd: str = "convert"
+    deep_research_cmd: str = "deep-research"
+    gen_music_cmd: str = "gen-music"
     
     # Default Location
     default_location: str = "home"
