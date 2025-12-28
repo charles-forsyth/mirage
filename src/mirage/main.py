@@ -1,9 +1,12 @@
 #!/usr/bin/env python3
 import subprocess
+import os
 import sys
 import argparse
 import datetime
+import shutil
 from pathlib import Path
+from typing import Optional
 
 from rich.console import Console
 from rich.panel import Panel
@@ -53,7 +56,9 @@ def generate_experience(location: str, generate_video: bool = False, silent: boo
     # Setup Output Directory
     sanitized_loc = location.replace(" ", "_").replace("/", "-")
     timestamp = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-    output_dir = Path("output") / f"{sanitized_loc}_{timestamp}"
+    
+    # Use configured base directory
+    output_dir = settings.output_base_dir / f"{sanitized_loc}_{timestamp}"
     output_dir.mkdir(parents=True, exist_ok=True)
 
     if not silent:
@@ -148,9 +153,12 @@ def main() -> None:
         
         console.print("[yellow]Respawning in background...[/yellow]")
         console.print(f"Command: {' '.join(cmd)}")
-        console.print("Logs will be appended to [bold]mirage.log[/bold]")
+        console.print(f"Logs will be appended to [bold]{settings.log_file}[/bold]")
         
-        with open("mirage.log", "a") as log_file:
+        # Ensure log directory exists
+        settings.log_file.parent.mkdir(parents=True, exist_ok=True)
+        
+        with open(settings.log_file, "a") as log_file:
              subprocess.Popen(cmd, stdout=log_file, stderr=log_file, start_new_session=True)
              
         console.print("[green]Mirage is running in the background.[/green]")
