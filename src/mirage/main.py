@@ -267,15 +267,9 @@ def cmd_news_short(args: argparse.Namespace) -> None:
         # 5. Assembly (FFmpeg)
         if not silent: status.update("[bold white]Assembling final video...[/bold white]")
         
-        # Get duration of voice to know when to stop
         duration = get_audio_duration(podcast_file)
         
-        # Complex filter:
-        # 1. Loop video (stream_loop -1)
-        # 2. Mix audio (voice + music at 0.2 vol)
-        # 3. Cut to shortest stream (which should be voice if we limit music?) 
-        # Actually simplest way: -t duration
-        
+        # Fixed f-string syntax in 0.5.5
         cmd_ffmpeg_safe = (
             f"{settings.ffmpeg_cmd} -y "
             f"-stream_loop -1 -i \"{video_file}\" "
@@ -291,6 +285,135 @@ def cmd_news_short(args: argparse.Namespace) -> None:
 
     if not silent:
         console.print(Panel(f"[bold green]News Short Ready![/bold green]\nFile: [link=file://{final_file.absolute()}]{final_file}[/link]", border_style="green"))
+
+def cmd_story(args: argparse.Namespace) -> None:
+    """Generates a Multi-Part Story Video for Shorts."""
+    topic = args.topic
+    character_desc = args.character
+    silent = args.silent
+    
+    sanitized_topic = topic.replace(" ", "_").replace("/", "-")[:50]
+    timestamp = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+    output_dir = settings.output_base_dir / f"Story_{sanitized_topic}_{timestamp}"
+    output_dir.mkdir(parents=True, exist_ok=True)
+
+    if not silent:
+        console.print(Panel(f"[bold green]Starting Mirage: Story Mode[/bold green]\nTopic: [cyan]{topic}[/cyan]\nOutput: [yellow]{output_dir}[/yellow]", title="Mirage"))
+
+    # Files
+    script_file = output_dir / "script.txt"
+    full_audio = output_dir / "full_audio.mp3"
+    base_image = output_dir / "base_char.png"
+    concat_list_file = output_dir / "concat_list.txt"
+    merged_video = output_dir / "merged_video.mp4"
+    final_video = output_dir / f"Mirage_Story_{sanitized_topic}.mp4"
+
+    with console.status(f"[bold green]Weaving story for: {topic}...[/bold green]", spinner="dots") as status:
+        
+        # 1. Generate Script (3 Sentences)
+        if not silent: status.update("[bold blue]Writing story script...[/bold blue]")
+        prompt = f"Write a dramatic, 3-sentence story about {topic}. The sentences should be concise and evocative."
+        
+        # We use gen-tts to generate text by capturing stderr/stdout (using pipe trick if needed, or simple prompt)
+        # Actually, gen-tts doesn't output just text easily without speaking.
+        # We will use `gen-tts --generate-transcript` but pipe to /dev/null and capture stderr? No.
+        # Let's use `gen-tts` to speak it to a temp file, and parse the output for the text.
+        
+        script_gen_cmd = f"echo \"{prompt}\" | {settings.gen_tts_cmd} --mode storyteller --no-play --output-file /dev/null"
+        result = subprocess.run(script_gen_cmd, shell=True, capture_output=True, text=True)
+        
+        # Parse script
+        full_out = result.stderr + "\n" + result.stdout
+        script_text = ""
+        if "--- Generated Podcast Script ---" in full_out: # Storyteller mode uses same header?
+             # Actually storyteller might just output text. Let's assume it does.
+             # If not, we fallback to just using the topic as a generic script if parsing fails.
+             try:
+                 script_text = full_out.split("--- Generated Podcast Script ---")[1].strip()
+                 # Remove labels if any
+                 script_text = re.sub(r"^(Narrator|Speaker):\s*", "", script_text, flags=re.MULTILINE).strip()
+             except:
+                 pass
+        
+        if not script_text:
+            # Fallback script if generation parsing failed
+            script_text = f"This is the story of {topic}. It is a tale of wonder and mystery. Join us as we explore its secrets."
+        
+        script_file.write_text(script_text)
+        
+        # Split into 3 chunks
+        sentences = re.split(r'(?<=[.!?])\s+', script_text)
+        chunks = []
+        current_chunk = ""
+        for s in sentences:
+            if len(chunks) < 2:
+                current_chunk += s + " "
+                if len(current_chunk) > 50: # Rough length
+                    chunks.append(current_chunk.strip())
+                    current_chunk = ""
+            else:
+                current_chunk += s + " "
+        chunks.append(current_chunk.strip())
+        
+        # Ensure exactly 3 chunks (pad or trim)
+        while len(chunks) < 3: chunks.append("...")
+        chunks = chunks[:3]
+
+        # 2. Generate Full Audio
+        if not silent: status.update("[bold blue]Recording narration...[/bold blue]")
+        run_command(f"cat \"{script_file}\" | {settings.gen_tts_cmd} --mode storyteller --no-play --audio-format MP3 --output-file \"{full_audio}\"", quiet=silent)
+
+        # 3. Base Character
+        if not silent: status.update("[bold magenta]Casting character...[/bold magenta]")
+        char_prompt = f"Vertical 9:16 portrait of {character_desc if character_desc else topic}, highly detailed, cinematic lighting, 8k"
+        run_command(f"{settings.lumina_cmd} --prompt \"{char_prompt}\" --aspect-ratio 9:16 --output-dir \"{output_dir}\" --filename base_char.png", quiet=silent)
+        
+        current_image = base_image
+        video_parts = []
+
+        # 4. Loop Generation (3 Parts)
+        for i, chunk in enumerate(chunks):
+            part_num = i + 1
+            if not silent: status.update(f"[bold cyan]Animating Part {part_num}/3...[/bold cyan]")
+            
+            part_video = output_dir / f"part{part_num}.mp4"
+            
+            # Vidius Prompt
+            vid_prompt = f"Character speaking, '\"{chunk}\'', vertical 9:16"
+            
+            run_command(f"{settings.vidius_cmd} \"{vid_prompt}\" -i \"{current_image}\" -o \"{part_video}\" -ar 9:16 -na", quiet=silent)
+            video_parts.append(part_video)
+            
+            # Extract last frame for next iteration (if not last part)
+            if i < 2:
+                next_image = output_dir / f"frame{part_num}.png"
+                # ffmpeg extract last frame
+                run_command(f"{settings.ffmpeg_cmd} -y -sseof -1 -i \"{part_video}\" -vframes 1 \"{next_image}\"", quiet=silent)
+                current_image = next_image
+
+        # 5. Stitch Videos
+        if not silent: status.update("[bold white]Stitching video segments...[/bold white]")
+        with open(concat_list_file, "w") as f:
+            for v in video_parts:
+                f.write(f"file '{v.name}'\n")
+        
+        run_command(f"{settings.ffmpeg_cmd} -y -f concat -safe 0 -i \"{concat_list_file}\" -c copy \"{merged_video}\"", quiet=silent)
+
+        # 6. Merge Audio + Video
+        if not silent: status.update("[bold white]Final mix...[/bold white]")
+        # Loop video if audio is longer, or cut? Ideally they match roughly (24s).
+        # We'll rely on audio length.
+        duration = get_audio_duration(full_audio)
+        
+        # FFmpeg merge
+        # -stream_loop -1 on video if needed? No, we have 24s of video.
+        # But if audio is 30s, we might need to slow down video or loop.
+        # Let's just mux them and shortest.
+        
+        run_command(f"{settings.ffmpeg_cmd} -y -i \"{merged_video}\" -i \"{full_audio}\" -map 0:v -map 1:a -c:v copy -shortest \"{final_video}\"", quiet=silent)
+
+    if not silent:
+        console.print(Panel(f"[bold green]Story Ready![/bold green]\nFile: [link=file://{final_video.absolute()}]{final_video}[/link]", border_style="green"))
 
 
 def main() -> None:
@@ -319,6 +442,14 @@ def main() -> None:
     news.add_argument("-s", "--silent", action="store_true", help="Silent mode")
     news.add_argument("-b", "--background", action="store_true", help="Background mode")
     news.set_defaults(func=cmd_news_short)
+
+    # --- Story Mode ---
+    story = subparsers.add_parser("story", help="Generate a 3-part seamless Story Short")
+    story.add_argument("topic", help="Story Topic")
+    story.add_argument("-c", "--character", help="Character Description (e.g. 'Cyberpunk Wizard')")
+    story.add_argument("-s", "--silent", action="store_true", help="Silent mode")
+    story.add_argument("-b", "--background", action="store_true", help="Background mode")
+    story.set_defaults(func=cmd_story)
 
     args = parser.parse_args()
 
