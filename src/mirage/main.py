@@ -200,8 +200,9 @@ def cmd_research(args: argparse.Namespace) -> None:
             console.print(result.stdout)
             
         # Parse Script from Output
-        full_output = result.stdout
-        script_display_text = context_text # Default to research notes if parsing fails
+        # gen-tts often prints to stderr (via rich console), so we check both
+        full_output = result.stderr + "\n" + result.stdout
+        script_display_text = context_text # Default fallback
         
         if "--- Generated Podcast Script ---" in full_output:
             try:
