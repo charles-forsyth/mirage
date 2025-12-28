@@ -46,5 +46,13 @@
         "duration": 60,
         "bpm": 120,
         "timestamp": "2025-12-28T15:16:40.478445"
+    },
+    {
+        "prompt": "Breaking news intro music, high energy, electronic, background for Scientist discover real dragons in norway",
+        "optimized_prompt": null,
+        "output_file": "/home/chuck/Documents/Mirage/Short_Scientist_discover_real_dragons_in_norway_2025-12-28_15-47-42/music.mp3",
+        "duration": 60,
+        "bpm": 120,
+        "timestamp": "2025-12-28T15:51:25.726925"
     }
 ]
