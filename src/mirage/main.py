@@ -6,7 +6,9 @@ import argparse
 import datetime
 import shutil
 import re
+import json
 from pathlib import Path
+from typing import Optional
 
 from rich.console import Console
 from rich.panel import Panel
@@ -94,7 +96,7 @@ def cmd_weather(args: argparse.Namespace) -> None:
             f"{settings.atmos_cmd} \"{location}\" >> \"{context_file}\" && "
             f"{settings.atmos_cmd} stars \"{location}\" >> \"{context_file}\" && "
             f"{settings.atmos_cmd} forecast \"{location}\" >> \"{context_file}\" && "
-            f"{settings.atmos_cmd} forecast \"{location}\" --hourly >> \"{context_file}\""
+            f"{settings.atmos_cmd} forecast \"{location}\" --hourly >> \"{context_file}""
         )
         run_command(cmd_gather, quiet=True) 
 
@@ -271,12 +273,6 @@ def cmd_news_short(args: argparse.Namespace) -> None:
         # Get duration of voice to know when to stop
         duration = get_audio_duration(podcast_file)
         
-        # Complex filter:
-        # 1. Loop video (stream_loop -1)
-        # 2. Mix audio (voice + music at 0.2 vol)
-        # 3. Cut to shortest stream (which should be voice if we limit music?) 
-        # Actually simplest way: -t duration
-        
         cmd_ffmpeg_safe = (
             f"{settings.ffmpeg_cmd} -y "
             f"-stream_loop -1 -i \"{video_file}\" "
@@ -318,6 +314,16 @@ def cmd_character(args: argparse.Namespace) -> None:
             return
         dest = lib_dir / f"{args.name}.png"
         shutil.copy(src, dest)
+        
+        # Save Metadata
+        meta = {
+            "description": args.description if args.description else f"Character: {args.name}",
+            "voice_prompt": args.voice if args.voice else "Neutral narrator voice"
+        }
+        meta_file = lib_dir / f"{args.name}.json"
+        with open(meta_file, "w") as f:
+            json.dump(meta, f, indent=4)
+            
         console.print(f"[green]Added character '{args.name}' to library.[/green]")
 
     elif action == "remove":
@@ -325,8 +331,10 @@ def cmd_character(args: argparse.Namespace) -> None:
             console.print("[red]Error: --name required for remove.[/red]")
             return
         dest = lib_dir / f"{args.name}.png"
+        meta_file = lib_dir / f"{args.name}.json"
         if dest.exists():
             dest.unlink()
+            if meta_file.exists(): meta_file.unlink()
             console.print(f"[green]Removed character '{args.name}'.[/green]")
         else:
             console.print(f"[yellow]Character '{args.name}' not found.[/yellow]")
@@ -344,7 +352,16 @@ def cmd_character(args: argparse.Namespace) -> None:
         lumina_prompt = f"Vertical 9:16 portrait of {args.prompt}, highly detailed, cinematic lighting, 8k"
         
         # Run lumina
-        run_command(f"{settings.lumina_cmd} --prompt \"{lumina_prompt}\" --aspect-ratio 9:16 --output-dir \"{lib_dir}\" --filename \"{args.name}.png\"")
+        run_command(f"{settings.lumina_cmd} --prompt \"{lumina_prompt}\" --aspect-ratio 9:16 --output-dir \"{lib_dir}\" --filename \"{args.name}.png\"", quiet=silent)
+        
+        # Save Metadata
+        meta = {
+            "description": args.prompt,
+            "voice_prompt": args.voice if args.voice else "Neutral narrator voice"
+        }
+        meta_file = lib_dir / f"{args.name}.json"
+        with open(meta_file, "w") as f:
+            json.dump(meta, f, indent=4)
         
         if dest.exists():
             console.print(f"[green]Character '{args.name}' created successfully.[/green]")
@@ -354,7 +371,7 @@ def cmd_character(args: argparse.Namespace) -> None:
 def cmd_story(args: argparse.Namespace) -> None:
     """Generates a Multi-Part Story Video for Shorts."""
     topic = args.topic
-    character_desc = args.character
+    character_name = args.character
     silent = args.silent
     
     sanitized_topic = topic.replace(" ", "_").replace("/", "-")[:50]
@@ -370,6 +387,23 @@ def cmd_story(args: argparse.Namespace) -> None:
     base_image = output_dir / "base_char.png"
     merged_video = output_dir / "Mirage_Story_Final.mp4"
 
+    # Character Metadata Loading
+    char_desc_text = character_name if character_name else "The character"
+    voice_prompt_text = "Neutral narrator voice"
+    
+    if character_name:
+        lib_dir = settings.character_library_dir
+        meta_file = lib_dir / f"{character_name}.json"
+        if meta_file.exists():
+            try:
+                with open(meta_file, "r") as f:
+                    meta = json.load(f)
+                    if "description" in meta: char_desc_text = meta["description"]
+                    if "voice_prompt" in meta: voice_prompt_text = meta["voice_prompt"]
+                if not silent: console.print(f"[green]Loaded metadata for {character_name}: Voice='{voice_prompt_text}'[/green]")
+            except:
+                console.print("[yellow]Warning: Failed to load character metadata.[/yellow]")
+
     with console.status(f"[bold green]Weaving story for: {topic}...[/bold green]", spinner="dots") as status:
         
         # 1. Generate Script (3 Sentences)
@@ -383,7 +417,6 @@ def cmd_story(args: argparse.Namespace) -> None:
         full_out = result.stderr + "\n" + result.stdout
         script_text = ""
         
-        # Check for both Podcast and Storyteller headers
         if "--- Generated Podcast Script ---" in full_out: 
              try:
                  script_text = full_out.split("--- Generated Podcast Script ---")[1].strip()
@@ -396,7 +429,6 @@ def cmd_story(args: argparse.Namespace) -> None:
              except Exception: pass
         
         if not script_text:
-            # Fallback script if generation parsing failed
             script_text = f"This is the story of {topic}. It is a tale of wonder and mystery. Join us as we explore its secrets."
         
         script_file.write_text(script_text)
@@ -408,52 +440,47 @@ def cmd_story(args: argparse.Namespace) -> None:
         for s in sentences:
             if len(chunks) < 2:
                 current_chunk += s + " "
-                if len(current_chunk) > 50: # Rough length
+                if len(current_chunk) > 50: 
                     chunks.append(current_chunk.strip())
                     current_chunk = ""
             else:
                 current_chunk += s + " "
         chunks.append(current_chunk.strip())
         
-        # Ensure exactly 3 chunks (pad or trim)
         while len(chunks) < 3: chunks.append("...")
         chunks = chunks[:3]
 
         # 2. Base Character
         if not silent: status.update("[bold magenta]Casting character...[/bold magenta]")
         
-        # Check library
-        char_lib_path = settings.character_library_dir / f"{character_desc}.png"
+        char_lib_path = settings.character_library_dir / f"{character_name}.png"
         
-        if character_desc and char_lib_path.exists():
+        if character_name and char_lib_path.exists():
              shutil.copy(char_lib_path, base_image)
-             if not silent: console.print(f"[green]Using character from library: {character_desc}[/green]")
+             if not silent: console.print(f"[green]Using character from library: {character_name}[/green]")
         else:
-             char_prompt = f"Vertical 9:16 portrait of {character_desc if character_desc else topic}, highly detailed, cinematic lighting, 8k"
+             # Fallback generation
+             char_prompt = f"Vertical 9:16 portrait of {char_desc_text}, highly detailed, cinematic lighting, 8k"
              run_command(f"{settings.lumina_cmd} --prompt \"{char_prompt}\" --aspect-ratio 9:16 --output-dir \"{output_dir}\" --filename base_char.png", quiet=silent)
         
         current_image = base_image
         video_parts = []
 
-        # 3. Loop Generation (3 Parts with Native Audio)
+        # 3. Loop Generation (3 Parts with Native Audio + Voice Prompt)
         for i, chunk in enumerate(chunks):
             part_num = i + 1
             if not silent: status.update(f"[bold cyan]Animating Part {part_num}/3...[/bold cyan]")
             
             part_video = output_dir / f"part{part_num}.mp4"
-            
-            # Vidius Prompt - Sanitize quotes
             clean_chunk = chunk.replace("'", "").replace('"', "")
             
-            # Construct prompt for speaking character
-            speaker_desc = character_desc if character_desc else "The character"
-            vid_prompt = f"{speaker_desc} speaking: '{clean_chunk}', vertical 9:16"
+            # VIDIUS PROMPT CONSTRUCTION
+            # "Character Description speaking (Voice: Voice Description): 'Dialogue'"
+            vid_prompt = f"{char_desc_text} speaking (Voice: {voice_prompt_text}): '{clean_chunk}', vertical 9:16"
             
-            # Generate video (with audio this time!)
             run_command(f"{settings.vidius_cmd} \"{vid_prompt}\" -i \"{current_image}\" -o \"{part_video}\" -ar 9:16", quiet=silent)
             video_parts.append(part_video)
             
-            # Extract last frame for next iteration (if not last part)
             if i < 2:
                 next_image = output_dir / f"frame{part_num}.png"
                 run_command(f"{settings.ffmpeg_cmd} -y -sseof -1 -i \"{part_video}\" -vframes 1 \"{next_image}\"", quiet=silent)
@@ -462,7 +489,6 @@ def cmd_story(args: argparse.Namespace) -> None:
         # 4. Stitch Videos (XFade Filtergraph)
         if not silent: status.update("[bold white]Stitching video segments with crossfade...[/bold white]")
         
-        # Probe durations
         durations = [get_duration(v) for v in video_parts]
         fade_duration = 0.25
         
@@ -493,7 +519,6 @@ def cmd_story(args: argparse.Namespace) -> None:
             
         filter_complex = ";".join(video_filters + audio_filters)
         
-        # If single clip, no crossfade needed
         if len(video_parts) == 1:
             cmd_stitch = f"{settings.ffmpeg_cmd} -y -i \"{video_parts[0]}\" -c copy \"{merged_video}\""
         else:
@@ -551,6 +576,8 @@ def main() -> None:
     char_parser.add_argument("name", nargs="?", help="Character Name") # Positional name for convenience
     char_parser.add_argument("-i", "--image", help="Path to existing image")
     char_parser.add_argument("-p", "--prompt", help="Prompt for creation")
+    char_parser.add_argument("-d", "--description", help="Visual Description (metadata)")
+    char_parser.add_argument("--voice", help="Voice Description (metadata)")
     char_parser.set_defaults(func=cmd_character)
 
     args = parser.parse_args()
