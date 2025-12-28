@@ -1,7 +1,7 @@
 [project]
 name = "mirage"
-version = "0.8.7"
-description = "Add your description here"
+version = "0.8.8"
+description = "A powerful AI orchestration CLI for generating multimedia atmospheric experiences, documentaries, and stories."
 readme = "README.md"
 authors = [
     { name = "Chuck", email = "charles.forsyth@ucr.edu" }
