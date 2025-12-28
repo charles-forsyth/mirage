@@ -248,7 +248,7 @@ def cmd_news_short(args: argparse.Namespace) -> None:
 
         # 2. Visuals (9:16)
         if not silent: status.update("[bold magenta]Capturing vertical visuals...[/bold magenta]")
-        img_prompt = f"Vertical 9:16 editorial news image of {topic}, professional broadcast quality, 8k, highly detailed"
+        img_prompt = f"Vertical 9:16 cinematic b-roll shot of {topic}, atmospheric, hyper-realistic, 8k. No people, no text, no news anchor."
         run_command(f"{settings.lumina_cmd} --prompt \"{img_prompt}\" --aspect-ratio 9:16 --output-dir \"{output_dir}\" --filename visual.png", quiet=silent)
 
         if not image_file.exists():
@@ -257,7 +257,7 @@ def cmd_news_short(args: argparse.Namespace) -> None:
 
         # 3. Video Animation
         if not silent: status.update("[bold cyan]Animating background...[/bold cyan]")
-        vid_prompt = f"Slow cinematic news camera movement, {topic}, vertical 9:16"
+        vid_prompt = f"Slow cinematic drone shot of {topic}, vertical 9:16"
         run_command(f"{settings.vidius_cmd} \"{vid_prompt}\" -i \"{image_file}\" -o \"{video_file}\" -ar 9:16 -na", quiet=silent)
 
         # 4. Music
@@ -283,7 +283,7 @@ def cmd_news_short(args: argparse.Namespace) -> None:
             f"-i \"{podcast_file}\" "
             f"-stream_loop -1 -i \"{music_file}\" "
             f"-filter_complex \"[2:a]volume=0.2[music];[1:a][music]amix=inputs=2:duration=first[audio]\" "
-            f"-map 0:v -map \"[audio]\" "
+            f"-map 0:v -map \"[audio]" "
             f"-t {duration} "
             f"-c:v libx264 -pix_fmt yuv420p \"{final_file}\""
         )

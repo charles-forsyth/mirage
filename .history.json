@@ -111,5 +111,18 @@
         "last_image": null,
         "ref_images": null,
         "extend_video": null
+    },
+    {
+        "prompt": "Slow cinematic news camera movement, The Return of Supersonic Travel, vertical 9:16",
+        "output_file": "/home/chuck/Documents/Mirage/Short_The_Return_of_Supersonic_Travel_2025-12-28_13-30-58/visual.mp4",
+        "duration": 8,
+        "aspect_ratio": "9:16",
+        "no_audio": true,
+        "person_generation": "allow_adult",
+        "negative_prompt": null,
+        "image": "/home/chuck/Documents/Mirage/Short_The_Return_of_Supersonic_Travel_2025-12-28_13-30-58/visual.png",
+        "last_image": null,
+        "ref_images": null,
+        "extend_video": null
     }
 ]
