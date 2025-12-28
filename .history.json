@@ -202,5 +202,44 @@
         "last_image": null,
         "ref_images": null,
         "extend_video": null
+    },
+    {
+        "prompt": "zog speaking: 'Through sky-gardens woven with shimmering solar panels, the small automaton trundled on, its optical sensors scanning a thousand smiling faces for the one that mattered.', vertical 9:16",
+        "output_file": "/home/chuck/Documents/Mirage/Story_A_lost_robot_searching_for_its_creator_in_a_solarp_2025-12-28_17-10-31/part1.mp4",
+        "duration": 8,
+        "aspect_ratio": "9:16",
+        "no_audio": false,
+        "person_generation": "allow_adult",
+        "negative_prompt": null,
+        "image": "/home/chuck/Documents/Mirage/Story_A_lost_robot_searching_for_its_creator_in_a_solarp_2025-12-28_17-10-31/base_char.png",
+        "last_image": null,
+        "ref_images": null,
+        "extend_video": null
+    },
+    {
+        "prompt": "zog speaking: 'Deep within its positronic brain, the single image of its creator flickered and degraded with every passing cycle, a ghost in its own machine.', vertical 9:16",
+        "output_file": "/home/chuck/Documents/Mirage/Story_A_lost_robot_searching_for_its_creator_in_a_solarp_2025-12-28_17-10-31/part2.mp4",
+        "duration": 8,
+        "aspect_ratio": "9:16",
+        "no_audio": false,
+        "person_generation": "allow_adult",
+        "negative_prompt": null,
+        "image": "/home/chuck/Documents/Mirage/Story_A_lost_robot_searching_for_its_creator_in_a_solarp_2025-12-28_17-10-31/frame1.png",
+        "last_image": null,
+        "ref_images": null,
+        "extend_video": null
+    },
+    {
+        "prompt": "zog speaking: 'And so it continued its search, a lonely pilgrim of chrome and wire in a paradise of glass and vine, forever chasing a memory that was turning to dust. --------------------------------\n\nBoth GOOGLE_API_KEY and GEMINI_API_KEY are set. Using GOOGLE_API_KEY. Error: Error during Gemini speech synthesis for prompt Through sky-gardens woven with shimmering solar panels, the small automaton trundled on, its optical...: Error converting audio to /dev/null. Ensure ffmpeg is installed and working.', vertical 9:16",
+        "output_file": "/home/chuck/Documents/Mirage/Story_A_lost_robot_searching_for_its_creator_in_a_solarp_2025-12-28_17-10-31/part3.mp4",
+        "duration": 8,
+        "aspect_ratio": "9:16",
+        "no_audio": false,
+        "person_generation": "allow_adult",
+        "negative_prompt": null,
+        "image": "/home/chuck/Documents/Mirage/Story_A_lost_robot_searching_for_its_creator_in_a_solarp_2025-12-28_17-10-31/frame2.png",
+        "last_image": null,
+        "ref_images": null,
+        "extend_video": null
     }
 ]
