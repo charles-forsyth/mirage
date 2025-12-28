@@ -352,7 +352,7 @@ def cmd_character(args: argparse.Namespace) -> None:
         lumina_prompt = f"Vertical 9:16 portrait of {args.prompt}, highly detailed, cinematic lighting, 8k"
         
         # Run lumina
-        run_command(f"{settings.lumina_cmd} --prompt \"{lumina_prompt}\" --aspect-ratio 9:16 --output-dir \"{lib_dir}\" --filename \"{args.name}.png\"", quiet=silent)
+        run_command(f"{settings.lumina_cmd} --prompt \"{lumina_prompt}\" --aspect-ratio 9:16 --output-dir \"{lib_dir}\" --filename \"{args.name}.png\"")
         
         # Save Metadata
         meta = {
