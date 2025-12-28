@@ -14,6 +14,10 @@ class Settings(BaseSettings):
     # Default Location
     default_location: str = "home"
 
+    # Paths
+    output_base_dir: Path = Path.home() / "Documents" / "Mirage"
+    log_file: Path = Path.home() / ".config" / "mirage" / "mirage.log"
+
     model_config = SettingsConfigDict(
         env_file=str(Path.home() / ".config" / "mirage" / ".env"),
         env_file_encoding="utf-8",
