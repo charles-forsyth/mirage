@@ -238,9 +238,9 @@ def cmd_news_short(args: argparse.Namespace) -> None:
         
         # 1. Script & Voice
         if not silent: status.update("[bold blue]Writing and recording news brief...[/bold blue]")
-        # Use gen-tts --mode news with --generate-transcript
-        # This asks Gemini to write the script about the topic in a news style, then speaks it.
-        run_command(f"{settings.gen_tts_cmd} --generate-transcript \"Breaking news update about {topic} for a YouTube Short\" --mode news --audio-format MP3 --output-file \"{podcast_file}\"", quiet=silent)
+        # Use pipe pattern with --mode news
+        news_prompt = f"Write a high-energy breaking news update about {topic} for a YouTube Short."
+        run_command(f"echo \"{news_prompt}\" | {settings.gen_tts_cmd} --mode news --audio-format MP3 --output-file \"{podcast_file}\"", quiet=silent)
 
         if not podcast_file.exists():
             console.print("[red]Failed to generate voice track.[/red]")
