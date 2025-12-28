@@ -88,5 +88,15 @@
         "person_generation": "allow_adult",
         "negative_prompt": null,
         "image": "/home/chuck/Documents/Mirage/Research_The_History_of_Coffee_2025-12-27_21-36-46/background_art.png"
+    },
+    {
+        "prompt": "Cinematic slow motion animation of The Future of Space Travel, documentary style",
+        "output_file": "/home/chuck/Documents/Mirage/Research_The_Future_of_Space_Travel_2025-12-27_21-55-11/background_video.mp4",
+        "duration": 8,
+        "aspect_ratio": "16:9",
+        "no_audio": true,
+        "person_generation": "allow_adult",
+        "negative_prompt": null,
+        "image": "/home/chuck/Documents/Mirage/Research_The_Future_of_Space_Travel_2025-12-27_21-55-11/background_art.png"
     }
 ]

@@ -14,5 +14,13 @@
         "duration": 30,
         "bpm": 120,
         "timestamp": "2025-12-27T21:45:13.821034"
+    },
+    {
+        "prompt": "Ambient documentary background music, The Future of Space Travel, cinematic score",
+        "optimized_prompt": null,
+        "output_file": "/home/chuck/Documents/Mirage/Research_The_Future_of_Space_Travel_2025-12-27_21-55-11/music.mp3",
+        "duration": 30,
+        "bpm": 120,
+        "timestamp": "2025-12-27T22:04:54.192383"
     }
 ]
