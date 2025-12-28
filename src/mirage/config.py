@@ -21,6 +21,7 @@ class Settings(BaseSettings):
     # Paths
     output_base_dir: Path = Path.home() / "Documents" / "Mirage"
     log_file: Path = Path.home() / ".config" / "mirage" / "mirage.log"
+    character_library_dir: Path = Path.home() / ".config" / "mirage" / "characters"
 
     model_config = SettingsConfigDict(
         env_file=str(Path.home() / ".config" / "mirage" / ".env"),
