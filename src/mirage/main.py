@@ -48,10 +48,13 @@ def run_command(command: str, shell: bool = True, quiet: bool = False) -> None:
             console.print(e)
         raise
 
-def generate_experience(location: str, generate_video: bool = False, silent: bool = False) -> None:
+def cmd_weather(args: argparse.Namespace) -> None:
     """
-    Orchestrates the Mirage generation pipeline.
+    Orchestrates the Weather Atmospheric Experience generation.
     """
+    location = args.location
+    generate_video = args.video
+    silent = args.silent
     
     # Setup Output Directory
     sanitized_loc = location.replace(" ", "_").replace("/", "-")
@@ -138,15 +141,22 @@ def generate_experience(location: str, generate_video: bool = False, silent: boo
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Mirage: AI Atmospheric Experience Generator")
-    parser.add_argument("-l", "--location", default=settings.default_location, help=f"Location for the weather forecast (default: {settings.default_location})")
-    parser.add_argument("-s", "--silent", action="store_true", help="Run in silent mode (suppress tool output)")
-    parser.add_argument("-v", "--video", action="store_true", help="Generate a background video animation using Vidius")
-    parser.add_argument("-b", "--background", action="store_true", help="Run in background mode (detach from terminal)")
-    
+    parser = argparse.ArgumentParser(description="Mirage: AI Experience Generator")
+    subparsers = parser.add_subparsers(dest="command", help="Available subcommands")
+
+    # --- Weather Subcommand ---
+    weather_parser = subparsers.add_parser("weather", help="Generate an Atmospheric Weather Experience")
+    weather_parser.add_argument("-l", "--location", default=settings.default_location, help=f"Location for the weather forecast (default: {settings.default_location})")
+    weather_parser.add_argument("-s", "--silent", action="store_true", help="Run in silent mode (suppress tool output)")
+    weather_parser.add_argument("-v", "--video", action="store_true", help="Generate a background video animation using Vidius")
+    weather_parser.add_argument("-b", "--background", action="store_true", help="Run in background mode (detach from terminal)")
+    weather_parser.set_defaults(func=cmd_weather)
+
     args = parser.parse_args()
 
-    if args.background:
+    # Handle Background Mode (Global or Subcommand specific logic)
+    # Since arguments are attached to the subparser, we check args.background if it exists.
+    if hasattr(args, 'background') and args.background:
         # Construct the new command args, removing -b/--background
         clean_args = [arg for arg in sys.argv[1:] if arg not in ['-b', '--background']]
         
@@ -171,14 +181,18 @@ def main() -> None:
         sys.exit(0)
 
     try:
-        generate_experience(args.location, generate_video=args.video, silent=args.silent)
+        if hasattr(args, 'func'):
+            args.func(args)
+        else:
+            parser.print_help()
     except KeyboardInterrupt:
         console.print("\n[bold red]Operation cancelled by user.[/bold red]")
         sys.exit(130)
     except Exception as e:
         console.print(f"\n[bold red]Fatal Error:[/bold red] {e}")
-        if not args.silent:
-            console.print_exception()
+        # We can't easily check for silent mode here globally as it's subcommand specific
+        # But we print the exception anyway for fatal errors.
+        console.print_exception()
         sys.exit(1)
 
 if __name__ == "__main__":
