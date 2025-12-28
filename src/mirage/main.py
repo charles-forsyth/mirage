@@ -238,9 +238,8 @@ def cmd_news_short(args: argparse.Namespace) -> None:
         
         # 1. Script & Voice
         if not silent: status.update("[bold blue]Writing and recording news brief...[/bold blue]")
-        # Use pipe pattern with --mode news
-        news_prompt = f"Write a high-energy breaking news update about {topic} for a YouTube Short."
-        run_command(f"echo \"{news_prompt}\" | {settings.gen_tts_cmd} --mode news --audio-format MP3 --output-file \"{podcast_file}\"", quiet=silent)
+        # Use pipe pattern with --mode news. Just pass the topic, let the mode handle framing.
+        run_command(f"echo \"{topic}\" | {settings.gen_tts_cmd} --mode news --no-play --audio-format MP3 --output-file \"{podcast_file}\"", quiet=silent)
 
         if not podcast_file.exists():
             console.print("[red]Failed to generate voice track.[/red]")
@@ -257,7 +256,7 @@ def cmd_news_short(args: argparse.Namespace) -> None:
 
         # 3. Video Animation
         if not silent: status.update("[bold cyan]Animating background...[/bold cyan]")
-        vid_prompt = f"Slow cinematic drone shot of {topic}, vertical 9:16"
+        vid_prompt = f"Cinematic b-roll of {topic}, vertical 9:16, seamless loop, continuous motion"
         run_command(f"{settings.vidius_cmd} \"{vid_prompt}\" -i \"{image_file}\" -o \"{video_file}\" -ar 9:16 -na", quiet=silent)
 
         # 4. Music
