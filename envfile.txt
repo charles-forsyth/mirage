@@ -1,0 +1,18 @@
+# ~/.config/mirage/.env
+
+# 1. Default Location
+# This saves you from typing -l "Location" every time.
+DEFAULT_LOCATION="Times Square, New York"
+
+# 2. Paths (Optional Overrides)
+# OUTPUT_BASE_DIR="/home/chuck/Documents/Mirage"
+# LOG_FILE="/home/chuck/.config/mirage/mirage.log"
+
+# 3. Tool Overrides (Optional)
+# Use these if your tools are not in the system PATH, 
+# or if you want to use a specific script/alias.
+# ATMOS_CMD="/home/chuck/bin/atmos-v2"
+# LUMINA_CMD="python3 /home/chuck/Projects/lumina/main.py"
+# GEN_TTS_CMD="gen-tts"
+# VIDIUS_CMD="vidius"
+# CONVERT_CMD="/usr/bin/convert"
