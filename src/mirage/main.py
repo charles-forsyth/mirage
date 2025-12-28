@@ -1,0 +1,171 @@
+#!/usr/bin/env python3
+import subprocess
+import sys
+import argparse
+import datetime
+from pathlib import Path
+
+from rich.console import Console
+from rich.panel import Panel
+from rich.traceback import install
+from jinja2 import Environment, FileSystemLoader
+
+from mirage.config import settings
+
+# Install rich traceback handler
+install(show_locals=True)
+
+console = Console()
+
+def run_command(command: str, shell: bool = True, quiet: bool = False) -> None:
+    """Runs a shell command and raises an exception on failure."""
+    try:
+        if quiet:
+            subprocess.run(
+                command, 
+                shell=shell, 
+                check=True, 
+                executable='/bin/bash', 
+                stdout=subprocess.PIPE, 
+                stderr=subprocess.PIPE, 
+                text=True
+            )
+        else:
+            # When not quiet, we let it print to stdout/stderr naturally
+            subprocess.run(command, shell=shell, check=True, executable='/bin/bash')
+            
+    except subprocess.CalledProcessError as e:
+        console.print(f"[bold red]Error running command:[/bold red] {command}")
+        if quiet:
+            console.print("[red]Captured Stderr:[/red]")
+            console.print(e.stderr)
+            console.print("[red]Captured Stdout:[/red]")
+            console.print(e.stdout)
+        else:
+            console.print(e)
+        raise
+
+def generate_experience(location: str, generate_video: bool = False, silent: bool = False) -> None:
+    """
+    Orchestrates the Mirage generation pipeline.
+    """
+    
+    # Setup Output Directory
+    sanitized_loc = location.replace(" ", "_").replace("/", "-")
+    timestamp = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+    output_dir = Path("output") / f"{sanitized_loc}_{timestamp}"
+    output_dir.mkdir(parents=True, exist_ok=True)
+
+    if not silent:
+        console.print(Panel(f"[bold green]Starting Mirage Generation[/bold green]\nLocation: [cyan]{location}[/cyan]\nOutput: [yellow]{output_dir}[/yellow]", title="Mirage"))
+
+    # Define paths
+    context_file = output_dir / "context.txt"
+    podcast_file = output_dir / "podcast.mp3"
+    image_file = output_dir / "background_art.png"
+    video_file = output_dir / "background_video.mp4"
+    html_file = output_dir / "index.html"
+
+    with console.status(f"[bold green]Gathering atmospheric data for {location}...[/bold green]", spinner="earth") as status:
+        # 1. Gather Data
+        if not silent:
+            status.update(f"[bold green]Gathering atmospheric data for {location}...[/bold green]")
+        
+        # We use the config settings for commands
+        cmd_gather = (
+            f"{settings.atmos_cmd} alert \"{location}\" > \"{context_file}\" && "
+            f"{settings.atmos_cmd} \"{location}\" >> \"{context_file}\" && "
+            f"{settings.atmos_cmd} stars \"{location}\" >> \"{context_file}\" && "
+            f"{settings.atmos_cmd} forecast \"{location}\" >> \"{context_file}\" && "
+            f"{settings.atmos_cmd} forecast \"{location}\" --hourly >> \"{context_file}\""
+        )
+        run_command(cmd_gather, quiet=True) # Always quiet for data gathering to avoid spamming the console with weather data
+
+        # Read context
+        context_text = context_file.read_text(encoding="utf-8")
+
+        # 2. Generate Audio
+        if not silent:
+            status.update("[bold blue]Synthesizing immersive audio podcast...[/bold blue]")
+        # Pipe input to avoid gen-tts stdin detection issues
+        run_command(f"cat \"{context_file}\" | {settings.gen_tts_cmd} --podcast --no-play --audio-format MP3 --output-file \"{podcast_file}\"", quiet=silent)
+
+        # 3. Generate Image
+        if not silent:
+            status.update("[bold magenta]Dreaming up background visual...[/bold magenta]")
+        run_command(f"cat \"{context_file}\" | {settings.lumina_cmd} --opt --output-dir \"{output_dir}\" -f background_art.png", quiet=silent)
+
+        if not image_file.exists():
+            console.print("[yellow]Warning: Lumina failed to generate an image. Creating placeholder.[/yellow]")
+            run_command(f"{settings.convert_cmd} -size 1024x1024 xc:black \"{image_file}\"", quiet=silent)
+        
+        # 4. Generate Video (Optional)
+        has_video = False
+        if generate_video:
+            if image_file.exists():
+                if not silent:
+                    status.update("[bold cyan]Animating scene with Vidius (this may take a moment)...[/bold cyan]")
+                vid_prompt = f"Cinematic slow motion animation of {location}, realistic weather, highly detailed"
+                run_command(f"{settings.vidius_cmd} \"{vid_prompt}\" -i \"{image_file}\" -o \"{video_file}\" -na", quiet=silent)
+                has_video = video_file.exists()
+            else:
+                console.print("[yellow]Skipping video generation: No source image.[/yellow]")
+
+        # 5. Generate HTML
+        if not silent:
+            status.update("[bold white]Assembling final experience...[/bold white]")
+        
+        env = Environment(loader=FileSystemLoader(Path(__file__).parent / "templates"))
+        template = env.get_template("index.html.j2")
+        
+        html_content = template.render(
+            location=location,
+            context_text=context_text,
+            image_file=image_file.name,
+            audio_file=podcast_file.name,
+            video_file=video_file.name if has_video else None
+        )
+        
+        html_file.write_text(html_content, encoding="utf-8")
+
+    if not silent:
+        console.print(Panel(f"[bold green]Experience Ready![/bold green]\nOpen: [link=file://{html_file.absolute()}]{html_file}[/link]", border_style="green"))
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser(description="Mirage: AI Atmospheric Experience Generator")
+    parser.add_argument("-l", "--location", default=settings.default_location, help=f"Location for the weather forecast (default: {settings.default_location})")
+    parser.add_argument("-s", "--silent", action="store_true", help="Run in silent mode (suppress tool output)")
+    parser.add_argument("-v", "--video", action="store_true", help="Generate a background video animation using Vidius")
+    parser.add_argument("-b", "--background", action="store_true", help="Run in background mode (detach from terminal)")
+    
+    args = parser.parse_args()
+
+    if args.background:
+        # Construct the new command args, removing -b/--background
+        clean_args = [arg for arg in sys.argv[1:] if arg not in ['-b', '--background']]
+        cmd = [sys.executable, "-u"] + clean_args # -u for unbuffered
+        
+        console.print("[yellow]Respawning in background...[/yellow]")
+        console.print(f"Command: {' '.join(cmd)}")
+        console.print("Logs will be appended to [bold]mirage.log[/bold]")
+        
+        with open("mirage.log", "a") as log_file:
+             subprocess.Popen(cmd, stdout=log_file, stderr=log_file, start_new_session=True)
+             
+        console.print("[green]Mirage is running in the background.[/green]")
+        sys.exit(0)
+
+    try:
+        generate_experience(args.location, generate_video=args.video, silent=args.silent)
+    except KeyboardInterrupt:
+        console.print("\n[bold red]Operation cancelled by user.[/bold red]")
+        sys.exit(130)
+    except Exception as e:
+        console.print(f"\n[bold red]Fatal Error:[/bold red] {e}")
+        if not args.silent:
+            console.print_exception()
+        sys.exit(1)
+
+if __name__ == "__main__":
+    main()
