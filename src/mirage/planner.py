@@ -28,7 +28,7 @@ def generate_story_plan(topic: str, character_meta: Dict[str, str]) -> List[Dict
     # The user requested 'gemini-3-pro-preview'. 
     # Current public API usually maps this via models/gemini-1.5-pro-latest or specific beta endpoints.
     # We will try the requested name, but fallback to 1.5-pro if 404.
-    model_name = "gemini-1.5-pro" # stable fallback
+    model_name = "gemini-3-pro-preview" # verified model ID
     
     # Construct Prompt
     char_desc = character_meta.get("description", "A generic character")
