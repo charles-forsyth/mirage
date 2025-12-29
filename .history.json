@@ -514,5 +514,18 @@
         "last_image": null,
         "ref_images": null,
         "extend_video": null
+    },
+    {
+        "prompt": "A gaunt, pale necromancer with long, stringy black hair and piercing, shadowed eyes. He wears tattered, heavy black robes adorned with ritualistic bones and small skulls hanging from necklaces and his belt. He stands in a dimly lit, ancient stone crypt, radiating an aura of decay and dark magic. speaking (Voice: Apologetic robot): 'I attempted to tell a story about The thing that lives in the static between TV channels, but the plans were lost in the ether.'. Visual context: Static and glitching digital screen with the words 'The thing that lives in the static between TV channels', vertical 9:16",
+        "output_file": "/home/chuck/Documents/Mirage/Story_The_thing_that_lives_in_the_static_between_TV_chan_2025-12-28_21-27-13/part1.mp4",
+        "duration": 8,
+        "aspect_ratio": "9:16",
+        "no_audio": false,
+        "person_generation": "allow_adult",
+        "negative_prompt": null,
+        "image": "/home/chuck/Documents/Mirage/Story_The_thing_that_lives_in_the_static_between_TV_chan_2025-12-28_21-27-13/base_char.png",
+        "last_image": null,
+        "ref_images": null,
+        "extend_video": null
     }
 ]
