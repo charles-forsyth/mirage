@@ -16,6 +16,7 @@ from rich.traceback import install
 from jinja2 import Environment, FileSystemLoader
 
 from mirage.config import settings
+import mirage.planner as planner
 
 # Install rich traceback handler
 install(show_locals=True)
@@ -279,7 +280,7 @@ def cmd_news_short(args: argparse.Namespace) -> None:
             f"-i \"{podcast_file}\" "
             f"-stream_loop -1 -i \"{music_file}\" "
             f"-filter_complex \"[2:a]volume=0.2[music];[1:a][music]amix=inputs=2:duration=first[audio]\" "
-            f"-map 0:v -map \"[audio]\" "
+            f"-map 0:v -map \"[audio]" "
             f"-t {duration} "
             f"-c:v libx264 -pix_fmt yuv420p \"{final_file}\""
         )
@@ -388,8 +389,10 @@ def cmd_story(args: argparse.Namespace) -> None:
     merged_video = output_dir / "Mirage_Story_Final.mp4"
 
     # Character Metadata Loading
-    char_desc_text = character_name if character_name else "The character"
-    voice_prompt_text = "Neutral narrator voice"
+    character_meta = {
+        "description": character_name if character_name else "The character",
+        "voice_prompt": "Neutral narrator voice"
+    }
     
     if character_name:
         lib_dir = settings.character_library_dir
@@ -398,57 +401,31 @@ def cmd_story(args: argparse.Namespace) -> None:
             try:
                 with open(meta_file, "r") as f:
                     meta = json.load(f)
-                    if "description" in meta: char_desc_text = meta["description"]
-                    if "voice_prompt" in meta: voice_prompt_text = meta["voice_prompt"]
-                if not silent: console.print(f"[green]Loaded metadata for {character_name}: Voice='{voice_prompt_text}'[/green]")
+                    character_meta.update(meta)
+                if not silent: console.print(f"[green]Loaded metadata for {character_name}[/green]")
             except:
                 console.print("[yellow]Warning: Failed to load character metadata.[/yellow]")
 
-    with console.status(f"[bold green]Weaving story for: {topic}...[/bold green]", spinner="dots") as status:
+    with console.status(f"[bold green]Dreaming story with Gemini 3.0...[/bold green]", spinner="dots") as status:
         
-        # 1. Generate Script (3 Sentences)
-        if not silent: status.update("[bold blue]Writing story script...[/bold blue]")
-        prompt = f"Write a dramatic, 3-sentence story about {topic}. The sentences should be concise and evocative."
+        # 1. Generate Story Plan via Planner
+        if not silent: status.update("[bold blue]Consulting the Planner...[/bold blue]")
         
-        script_gen_cmd = f"echo \"{prompt}\" | {settings.gen_tts_cmd} --mode storyteller --no-play --output-file /dev/null"
-        result = subprocess.run(script_gen_cmd, shell=True, capture_output=True, text=True)
+        try:
+            segments = planner.generate_story_plan(topic, character_meta)
+        except Exception as e:
+            console.print(f"[red]Planning failed: {e}[/red]")
+            return
+
+        if not segments:
+            console.print("[red]No story segments generated.[/red]")
+            return
+            
+        # Save script for reference
+        full_script = "\n\n".join([s.get("narration", "") for s in segments])
+        script_file.write_text(full_script)
         
-        # Parse script
-        full_out = result.stderr + "\n" + result.stdout
-        script_text = ""
-        
-        if "--- Generated Podcast Script ---" in full_out: 
-             try:
-                 script_text = full_out.split("--- Generated Podcast Script ---")[1].strip()
-                 script_text = re.sub(r"^(Narrator|Speaker):\s*", "", script_text, flags=re.MULTILINE).strip()
-             except Exception: pass
-        elif "--- Generated Storyteller Script ---" in full_out:
-             try:
-                 script_text = full_out.split("--- Generated Storyteller Script ---")[1].strip()
-                 script_text = re.sub(r"^(Narrator|Speaker):\s*", "", script_text, flags=re.MULTILINE).strip()
-             except Exception: pass
-        
-        if not script_text:
-            script_text = f"This is the story of {topic}. It is a tale of wonder and mystery. Join us as we explore its secrets."
-        
-        script_file.write_text(script_text)
-        
-        # Split into 3 chunks
-        sentences = re.split(r'(?<=[.!?])\s+', script_text)
-        chunks: list[str] = []
-        current_chunk = ""
-        for s in sentences:
-            if len(chunks) < 2:
-                current_chunk += s + " "
-                if len(current_chunk) > 50: 
-                    chunks.append(current_chunk.strip())
-                    current_chunk = ""
-            else:
-                current_chunk += s + " "
-        chunks.append(current_chunk.strip())
-        
-        while len(chunks) < 3: chunks.append("...")
-        chunks = chunks[:3]
+        if not silent: console.print(f"[cyan]Generated {len(segments)} story segments.[/cyan]")
 
         # 2. Base Character
         if not silent: status.update("[bold magenta]Casting character...[/bold magenta]")
@@ -460,29 +437,35 @@ def cmd_story(args: argparse.Namespace) -> None:
              if not silent: console.print(f"[green]Using character from library: {character_name}[/green]")
         else:
              # Fallback generation
-             char_prompt = f"Vertical 9:16 portrait of {char_desc_text}, highly detailed, cinematic lighting, 8k"
+             char_desc = character_meta["description"]
+             char_prompt = f"Vertical 9:16 portrait of {char_desc}, highly detailed, cinematic lighting, 8k"
              run_command(f"{settings.lumina_cmd} --prompt \"{char_prompt}\" --aspect-ratio 9:16 --output-dir \"{output_dir}\" --filename base_char.png", quiet=silent)
         
         current_image = base_image
         video_parts = []
 
-        # 3. Loop Generation (3 Parts with Native Audio + Voice Prompt)
-        for i, chunk in enumerate(chunks):
+        # 3. Loop Generation (Iterate through segments)
+        for i, segment in enumerate(segments):
             part_num = i + 1
-            if not silent: status.update(f"[bold cyan]Animating Part {part_num}/3...[/bold cyan]")
+            narration = segment.get("narration", "")
+            visual = segment.get("visual_prompt", "")
+            voice_dir = segment.get("voice_direction", character_meta["voice_prompt"])
+            
+            if not silent: status.update(f"[bold cyan]Animating Part {part_num}/{len(segments)}...[/bold cyan]")
             
             part_video = output_dir / f"part{part_num}.mp4"
-            clean_chunk = chunk.replace("'", "").replace('"', "")
+            clean_text = narration.replace("'", "").replace('"', "")
             
             # VIDIUS PROMPT CONSTRUCTION
-            # "Character Description speaking (Voice: Voice Description): 'Dialogue'"
-            vid_prompt = f"{char_desc_text} speaking (Voice: {voice_prompt_text}): '{clean_chunk}', vertical 9:16"
+            vid_prompt = f"{character_meta['description']} speaking (Voice: {voice_dir}): '{clean_text}'. Visual context: {visual}, vertical 9:16"
             
             run_command(f"{settings.vidius_cmd} \"{vid_prompt}\" -i \"{current_image}\" -o \"{part_video}\" -ar 9:16", quiet=silent)
             video_parts.append(part_video)
             
-            if i < 2:
+            # Prepare next frame
+            if i < len(segments) - 1:
                 next_image = output_dir / f"frame{part_num}.png"
+                # Removed unsharp mask per user request
                 run_command(f"{settings.ffmpeg_cmd} -y -sseof -1 -i \"{part_video}\" -vframes 1 \"{next_image}\"", quiet=silent)
                 current_image = next_image
 
