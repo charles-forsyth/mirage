@@ -610,7 +610,6 @@ def cmd_story(args: argparse.Namespace) -> None:
         if not silent:
             console.print(f"[cyan]Generated {len(segments)} story segments.[/cyan]")
 
-        current_image = base_image
         video_parts = []
 
         # 3. Loop Generation (Iterate through segments)
@@ -628,23 +627,14 @@ def cmd_story(args: argparse.Namespace) -> None:
             clean_text = narration.replace("'", "").replace('"', "")
 
             # VIDIUS PROMPT CONSTRUCTION
-            vid_prompt = f"Speaking (Voice: {voice_dir}): '{clean_text}'. vertical 9:16"
+            vid_prompt = f"Speaking (Voice: {voice_dir}): '{clean_text}'. looping animation, vertical 9:16"
 
+            # Always use base_image to prevent drift and safety violations
             run_command(
-                f'{settings.vidius_cmd} "{vid_prompt}" -i "{current_image}" -o "{part_video}" -ar 9:16',
+                f'{settings.vidius_cmd} "{vid_prompt}" -i "{base_image}" -o "{part_video}" -ar 9:16',
                 quiet=silent,
             )
             video_parts.append(part_video)
-
-            # Prepare next frame
-            if i < len(segments) - 1:
-                next_image = output_dir / f"frame{part_num}.png"
-                # Removed unsharp mask per user request
-                run_command(
-                    f'{settings.ffmpeg_cmd} -y -sseof -1 -i "{part_video}" -vframes 1 "{next_image}"',
-                    quiet=silent,
-                )
-                current_image = next_image
 
         # 4. Stitch Videos (XFade Filtergraph)
         if not silent:
