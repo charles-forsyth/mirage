@@ -280,7 +280,7 @@ def cmd_news_short(args: argparse.Namespace) -> None:
             f"-i \"{podcast_file}\" "
             f"-stream_loop -1 -i \"{music_file}\" "
             f"-filter_complex \"[2:a]volume=0.2[music];[1:a][music]amix=inputs=2:duration=first[audio]\" "
-            f"-map 0:v -map \"[audio]" "
+            f"-map 0:v -map \"[audio]\" "
             f"-t {duration} "
             f"-c:v libx264 -pix_fmt yuv420p \"{final_file}\""
         )
