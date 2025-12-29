@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mirage Research: {{ topic }}</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body {
+            background-color: #000;
+            overflow: hidden;
+            font-family: 'Georgia', serif; /* Serif for "Documentary" feel */
+        }
+        
+        /* Base Image Layer */
+        .image-container {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background-image: url('{{ image_file }}');
+            background-size: cover;
+            background-position: center;
+            opacity: 0.6;
+            z-index: 0;
+        }
+
+        /* Video Layer (Fades in) */
+        .video-container {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            opacity: 0; /* Start hidden */
+            transition: opacity 3s ease-in-out;
+            z-index: 1; /* On top of image */
+            overflow: hidden;
+        }
+
+        video {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            mask-image: radial-gradient(circle at center, black 40%, transparent 100%);
+            -webkit-mask-image: radial-gradient(circle at center, black 40%, transparent 100%);
+        }
+
+        /* Vignette Overlay */
+        .vignette {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background: radial-gradient(circle at center, transparent 30%, black 100%);
+            z-index: 2;
+            pointer-events: none;
+        }
+
+        /* Content Container - Centered for Research */
+        .content-container {
+            position: absolute;
+            left: 15%;
+            right: 15%;
+            top: 10%;
+            bottom: 15%;
+            width: 70%;
+            overflow: hidden; /* Hide scrollbars */
+            z-index: 10;
+            background: linear-gradient(to bottom, transparent, rgba(0,0,0,0.7) 10%, rgba(0,0,0,0.7) 90%, transparent);
+            display: flex;
+            justify-content: center;
+            padding: 2rem;
+        }
+
+        .scrolling-content {
+            color: #e5e7eb; /* Gray-200 */
+            font-size: 1.1rem;
+            line-height: 1.8;
+            white-space: pre-wrap; /* Preserve markdown formatting if raw */
+            max-width: 800px;
+            transform: translateY(100%); /* Start below the visible area */
+            will-change: transform;
+        }
+        
+        /* Markdown Headers override */
+        h1, h2, h3 { font-weight: bold; margin-top: 1em; margin-bottom: 0.5em; color: #fff; }
+
+        /* Audio Player Controls */
+        .controls {
+            position: fixed;
+            bottom: 20px;
+            left: 20px;
+            z-index: 50;
+            display: flex;
+            gap: 10px;
+            opacity: 0.5;
+            transition: opacity 0.3s;
+        }
+        .controls:hover {
+            opacity: 1;
+        }
+    </style>
+</head>
+<body>
+
+    {% if not video_file %}
+    <div class="image-container" id="bgImage"></div>
+    {% endif %}
+    
+    {% if video_file %}
+    <div class="video-container" id="videoContainer">
+        <video id="bgVideo" muted loop playsinline>
+            <source src="{{ video_file }}" type="video/mp4">
+        </video>
+    </div>
+    {% endif %}
+
+    <div class="vignette"></div>
+
+    <div class="content-container">
+        <div class="scrolling-content" id="textContent">
+{{ context_text }}
+        </div>
+    </div>
+
+    <div class="controls">
+        <audio id="podcastAudio" controls autoplay>
+            <source src="{{ audio_file }}" type="audio/mpeg">
+        </audio>
+    </div>
+
+    {% if music_file %}
+    <audio id="bgMusic" loop autoplay>
+        <source src="{{ music_file }}" type="audio/mpeg">
+    </audio>
+    {% endif %}
+
+    <script>
+        const audio = document.getElementById('podcastAudio');
+        const textContent = document.getElementById('textContent');
+        const contentContainer = document.querySelector('.content-container');
+        
+        {% if music_file %}
+        const bgMusic = document.getElementById('bgMusic');
+        if (bgMusic) {
+            bgMusic.volume = 0.2; // 20% volume for background music
+            
+            // Sync play/pause with podcast
+            audio.addEventListener('play', () => bgMusic.play());
+            audio.addEventListener('pause', () => bgMusic.pause());
+        }
+        {% endif %}
+
+        {% if video_file %}
+        const bgVideo = document.getElementById('bgVideo');
+        const videoContainer = document.getElementById('videoContainer');
+
+        if (bgVideo) {
+            bgVideo.addEventListener('loadeddata', () => {
+                console.log("Video loaded, starting playback and fade-in...");
+                bgVideo.play().then(() => {
+                    setTimeout(() => {
+                        videoContainer.style.opacity = '1';
+                    }, 500);
+                }).catch(e => console.error("Video playback failed:", e));
+            });
+        }
+        {% endif %}
+
+        // Sync Scrolling to Audio
+        audio.addEventListener('timeupdate', () => {
+            if (audio.duration) {
+                const percentage = audio.currentTime / audio.duration;
+                
+                // Calculate scroll geometry
+                const containerHeight = contentContainer.clientHeight;
+                const contentHeight = textContent.scrollHeight;
+                
+                // Total distance to travel: Start from fully below (containerHeight) to fully above (-contentHeight)
+                const totalDistance = containerHeight + contentHeight;
+                
+                // Current Position
+                const currentY = containerHeight - (totalDistance * percentage);
+                
+                textContent.style.animation = 'none';
+                textContent.style.transform = `translateY(${currentY}px)`;
+            }
+        });
+
+        // Autoplay handling
+        window.addEventListener('load', () => {
+            audio.play().catch(e => {
+                console.log("Autoplay blocked, waiting for user interaction");
+            });
+            {% if music_file %}
+            if(bgMusic) bgMusic.play().catch(e => console.log("Music autoplay blocked"));
+            {% endif %}
+        });
+    </script>
+</body>
+</html>
