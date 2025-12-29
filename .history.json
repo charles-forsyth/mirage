@@ -397,5 +397,83 @@
         "last_image": null,
         "ref_images": null,
         "extend_video": null
+    },
+    {
+        "prompt": "He looked every bit the dapper Prohibition-era mobster, sporting a sharp three-piece pinstripe suit. A gold fob dangled from his waistcoat, marking the place of a heavy pocket watch, while his tilted fedora cast a shadow over his eyes. Cinematic noir lighting, 8k realism. speaking (Voice: Gruff, heavy New York accent, confident, mobster style): 'They had cracked the Don\u2019s private reserve for a taste of the finest Canadian rye, but the crate they pried open held no bottles, only sleek, impossible weapons glowing with a faint, blue malice.', vertical 9:16",
+        "output_file": "/home/chuck/Documents/Mirage/Story_A_prohibition-era_heist_where_the_loot_is_a_crate__2025-12-28_18-28-19/part1.mp4",
+        "duration": 8,
+        "aspect_ratio": "9:16",
+        "no_audio": false,
+        "person_generation": "allow_adult",
+        "negative_prompt": null,
+        "image": "/home/chuck/Documents/Mirage/Story_A_prohibition-era_heist_where_the_loot_is_a_crate__2025-12-28_18-28-19/base_char.png",
+        "last_image": null,
+        "ref_images": null,
+        "extend_video": null
+    },
+    {
+        "prompt": "He looked every bit the dapper Prohibition-era mobster, sporting a sharp three-piece pinstripe suit. A gold fob dangled from his waistcoat, marking the place of a heavy pocket watch, while his tilted fedora cast a shadow over his eyes. Cinematic noir lighting, 8k realism. speaking (Voice: Gruff, heavy New York accent, confident, mobster style): 'Johnny Fingers wrapped his hand around a cold, smooth grip, feeling a strange energy pulse against his palm as if the thing were alive.', vertical 9:16",
+        "output_file": "/home/chuck/Documents/Mirage/Story_A_prohibition-era_heist_where_the_loot_is_a_crate__2025-12-28_18-28-19/part2.mp4",
+        "duration": 8,
+        "aspect_ratio": "9:16",
+        "no_audio": false,
+        "person_generation": "allow_adult",
+        "negative_prompt": null,
+        "image": "/home/chuck/Documents/Mirage/Story_A_prohibition-era_heist_where_the_loot_is_a_crate__2025-12-28_18-28-19/frame1.png",
+        "last_image": null,
+        "ref_images": null,
+        "extend_video": null
+    },
+    {
+        "prompt": "He looked every bit the dapper Prohibition-era mobster, sporting a sharp three-piece pinstripe suit. A gold fob dangled from his waistcoat, marking the place of a heavy pocket watch, while his tilted fedora cast a shadow over his eyes. Cinematic noir lighting, 8k realism. speaking (Voice: Gruff, heavy New York accent, confident, mobster style): 'When the feds stormed the warehouse, Johnny didnt reach for his snub-nosed .38; he raised the future and painted the night with silent, blinding fire. --------------------------------\n\nBoth GOOGLE_API_KEY and GEMINI_API_KEY are set. Using GOOGLE_API_KEY. Error: Error during Gemini speech synthesis for prompt They had cracked the Don\u2019s private reserve for a taste of the finest Canadian rye, but the crate the...: Error converting audio to /dev/null. Ensure ffmpeg is installed and working.', vertical 9:16",
+        "output_file": "/home/chuck/Documents/Mirage/Story_A_prohibition-era_heist_where_the_loot_is_a_crate__2025-12-28_18-28-19/part3.mp4",
+        "duration": 8,
+        "aspect_ratio": "9:16",
+        "no_audio": false,
+        "person_generation": "allow_adult",
+        "negative_prompt": null,
+        "image": "/home/chuck/Documents/Mirage/Story_A_prohibition-era_heist_where_the_loot_is_a_crate__2025-12-28_18-28-19/frame2.png",
+        "last_image": null,
+        "ref_images": null,
+        "extend_video": null
+    },
+    {
+        "prompt": "A gaunt, pale necromancer with long, stringy black hair and piercing, shadowed eyes. He wears tattered, heavy black robes adorned with ritualistic bones and small skulls hanging from necklaces and his belt. He stands in a dimly lit, ancient stone crypt, radiating an aura of decay and dark magic. speaking (Voice: Cold, raspy, and whispering. A slow, deliberate delivery that sounds like dry leaves skittering on stone. Sinister, devoid of warmth, with a slight, eerie resonance.): 'The pre-dawn gloom was not a time for sleep, but for sacrament.', vertical 9:16",
+        "output_file": "/home/chuck/Documents/Mirage/Story_The_dark_ritual_to_summon_the_perfect_cup_of_coffe_2025-12-28_20-04-04/part1.mp4",
+        "duration": 8,
+        "aspect_ratio": "9:16",
+        "no_audio": false,
+        "person_generation": "allow_adult",
+        "negative_prompt": null,
+        "image": "/home/chuck/Documents/Mirage/Story_The_dark_ritual_to_summon_the_perfect_cup_of_coffe_2025-12-28_20-04-04/base_char.png",
+        "last_image": null,
+        "ref_images": null,
+        "extend_video": null
+    },
+    {
+        "prompt": "A gaunt, pale necromancer with long, stringy black hair and piercing, shadowed eyes. He wears tattered, heavy black robes adorned with ritualistic bones and small skulls hanging from necklaces and his belt. He stands in a dimly lit, ancient stone crypt, radiating an aura of decay and dark magic. speaking (Voice: Cold, raspy, and whispering. A slow, deliberate delivery that sounds like dry leaves skittering on stone. Sinister, devoid of warmth, with a slight, eerie resonance.): 'In the stillness of his kitchen, which he had consecrated as an altar, he began the rite.', vertical 9:16",
+        "output_file": "/home/chuck/Documents/Mirage/Story_The_dark_ritual_to_summon_the_perfect_cup_of_coffe_2025-12-28_20-04-04/part2.mp4",
+        "duration": 8,
+        "aspect_ratio": "9:16",
+        "no_audio": false,
+        "person_generation": "allow_adult",
+        "negative_prompt": null,
+        "image": "/home/chuck/Documents/Mirage/Story_The_dark_ritual_to_summon_the_perfect_cup_of_coffe_2025-12-28_20-04-04/frame1.png",
+        "last_image": null,
+        "ref_images": null,
+        "extend_video": null
+    },
+    {
+        "prompt": "A gaunt, pale necromancer with long, stringy black hair and piercing, shadowed eyes. He wears tattered, heavy black robes adorned with ritualistic bones and small skulls hanging from necklaces and his belt. He stands in a dimly lit, ancient stone crypt, radiating an aura of decay and dark magic. speaking (Voice: Cold, raspy, and whispering. A slow, deliberate delivery that sounds like dry leaves skittering on stone. Sinister, devoid of warmth, with a slight, eerie resonance.): 'The beans, dark as a forgotten secret, were ground by hand in a stone mortar, each turn of the pestle a whispered syllable of a forbidden incantation. He did not use water from the tap, but rainwater collected during a thunderstorm, now brought to a boil over a single, unwavering flame. As the steam curled into sigils in the still air, he made the offering\u2014a sliver of a happy memory, a wisp of yesterday\u2019s laughter, given up to the void. Then, it began. A single, perfect drop of liquid midnight fell from the filter into the waiting porcelain cup. It was not a brew, but a summoning. He raised the cup, the aroma alone a jolt of pure, cosmic energy that promised to rewrite the day. The universe snapped into focus with the first sip, but in the corner of his eye, a shadow detached itself from the wall, a little deeper and hungrier than it had been before. --------------------------------\n\nBoth GOOGLE_API_KEY and GEMINI_API_KEY are set. Using GOOGLE_API_KEY. Error: Error during Gemini speech synthesis for prompt The pre-dawn gloom was not a time for sleep, but for sacrament. In the stillness of his kitchen, whi...: 500 INTERNAL. {error: {code: 500, message: An internal error has occurred. Please retry or report in https://developers.generativeai.google/guide/troubleshooting, status: INTERNAL}}', vertical 9:16",
+        "output_file": "/home/chuck/Documents/Mirage/Story_The_dark_ritual_to_summon_the_perfect_cup_of_coffe_2025-12-28_20-04-04/part3.mp4",
+        "duration": 8,
+        "aspect_ratio": "9:16",
+        "no_audio": false,
+        "person_generation": "allow_adult",
+        "negative_prompt": null,
+        "image": "/home/chuck/Documents/Mirage/Story_The_dark_ritual_to_summon_the_perfect_cup_of_coffe_2025-12-28_20-04-04/frame2.png",
+        "last_image": null,
+        "ref_images": null,
+        "extend_video": null
     }
 ]
