@@ -625,6 +625,7 @@ def cmd_story(args: argparse.Namespace) -> None:
         if not silent:
             console.print(f"[cyan]Generated {len(segments)} story segments.[/cyan]")
 
+        current_image = base_image
         video_parts = []
 
         # 3. Loop Generation (Iterate through segments)
@@ -644,12 +645,25 @@ def cmd_story(args: argparse.Namespace) -> None:
             # VIDIUS PROMPT CONSTRUCTION
             vid_prompt = f"Close-up portrait. The character is speaking the following line with {voice_dir} tone: '{clean_text}'. {ar_vidius_suffix}"
 
-            # Always use base_image to prevent drift and safety violations
+            # Input Image Strategy:
+            # - Cinema (16:9): Use chaining (current_image) for flow/movement.
+            # - Portrait (9:16): Use base_image for stability/safety.
+            input_img = current_image if is_cinema else base_image
+
             run_command(
-                f'{settings.vidius_cmd} "{vid_prompt}" -i "{base_image}" -o "{part_video}" -ar {ar_val}',
+                f'{settings.vidius_cmd} "{vid_prompt}" -i "{input_img}" -o "{part_video}" -ar {ar_val}',
                 quiet=silent,
             )
             video_parts.append(part_video)
+
+            # Chain Frame (Cinema Only)
+            if is_cinema and i < len(segments) - 1:
+                next_image = output_dir / f"frame{part_num}.png"
+                run_command(
+                    f'{settings.ffmpeg_cmd} -y -sseof -1 -i "{part_video}" -vframes 1 "{next_image}"',
+                    quiet=silent,
+                )
+                current_image = next_image
 
         # 4. Stitch Videos (XFade Filtergraph)
         if not silent:
