@@ -521,16 +521,26 @@ def cmd_story(args: argparse.Namespace) -> None:
     topic = args.topic
     character_name = args.character
     silent = args.silent
+    is_cinema = getattr(args, "cinema", False)
+
+    # Aspect Ratio Config
+    ar_val = "16:9" if is_cinema else "9:16"
+    ar_lumina_desc = (
+        "Cinematic 16:9 landscape" if is_cinema else "Vertical 9:16 portrait"
+    )
+    ar_vidius_suffix = "cinematic 16:9" if is_cinema else "vertical 9:16"
+    ar_prefix = "Story_Cinema" if is_cinema else "Story"
 
     sanitized_topic = topic.replace(" ", "_").replace("/", "-")[:50]
     timestamp = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-    output_dir = settings.output_base_dir / f"Story_{sanitized_topic}_{timestamp}"
+    output_dir = settings.output_base_dir / f"{ar_prefix}_{sanitized_topic}_{timestamp}"
     output_dir.mkdir(parents=True, exist_ok=True)
 
     if not silent:
+        mode_str = "Cinema Mode (16:9)" if is_cinema else "Portrait Mode (9:16)"
         console.print(
             Panel(
-                f"[bold green]Starting Mirage: Story Mode[/bold green]\nTopic: [cyan]{topic}[/cyan]\nOutput: [yellow]{output_dir}[/yellow]",
+                f"[bold green]Starting Mirage: Story Mode[/bold green]\nTopic: [cyan]{topic}[/cyan]\nMode: [magenta]{mode_str}[/magenta]\nOutput: [yellow]{output_dir}[/yellow]",
                 title="Mirage",
             )
         )
@@ -569,6 +579,9 @@ def cmd_story(args: argparse.Namespace) -> None:
 
     char_lib_path = settings.character_library_dir / f"{character_name}.png"
 
+    # Note: If library image exists, we use it regardless of AR.
+    # User is responsible for providing 16:9 image for cinema mode if they want perfect fit,
+    # otherwise Vidius might crop or pad.
     if character_name and char_lib_path.exists():
         shutil.copy(char_lib_path, base_image)
         if not silent:
@@ -578,9 +591,11 @@ def cmd_story(args: argparse.Namespace) -> None:
     else:
         # Fallback generation
         char_desc = character_meta["description"]
-        char_prompt = f"Vertical 9:16 portrait of {char_desc}, highly detailed, cinematic lighting, 8k"
+        char_prompt = (
+            f"{ar_lumina_desc} of {char_desc}, highly detailed, cinematic lighting, 8k"
+        )
         run_command(
-            f'{settings.lumina_cmd} --prompt "{char_prompt}" --aspect-ratio 9:16 --output-dir "{output_dir}" --filename base_char.png',
+            f'{settings.lumina_cmd} --prompt "{char_prompt}" --aspect-ratio {ar_val} --output-dir "{output_dir}" --filename base_char.png',
             quiet=silent,
         )
 
@@ -627,11 +642,11 @@ def cmd_story(args: argparse.Namespace) -> None:
             clean_text = narration.replace("'", "").replace('"', "")
 
             # VIDIUS PROMPT CONSTRUCTION
-            vid_prompt = f"Close-up portrait. The character is speaking the following line with {voice_dir} tone: '{clean_text}'. vertical 9:16"
+            vid_prompt = f"Close-up portrait. The character is speaking the following line with {voice_dir} tone: '{clean_text}'. {ar_vidius_suffix}"
 
             # Always use base_image to prevent drift and safety violations
             run_command(
-                f'{settings.vidius_cmd} "{vid_prompt}" -i "{base_image}" -o "{part_video}" -ar 9:16',
+                f'{settings.vidius_cmd} "{vid_prompt}" -i "{base_image}" -o "{part_video}" -ar {ar_val}',
                 quiet=silent,
             )
             video_parts.append(part_video)
@@ -744,6 +759,7 @@ def main() -> None:
     story.add_argument(
         "-c", "--character", help="Character Description (e.g. 'Cyberpunk Wizard')"
     )
+    story.add_argument("--cinema", action="store_true", help="Cinema mode (16:9)")
     story.add_argument("-s", "--silent", action="store_true", help="Silent mode")
     story.add_argument(
         "-b", "--background", action="store_true", help="Background mode"
