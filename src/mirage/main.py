@@ -627,7 +627,7 @@ def cmd_story(args: argparse.Namespace) -> None:
             clean_text = narration.replace("'", "").replace('"', "")
 
             # VIDIUS PROMPT CONSTRUCTION
-            vid_prompt = f"Speaking (Voice: {voice_dir}): '{clean_text}'. looping animation, vertical 9:16"
+            vid_prompt = f"Close-up portrait. The character is speaking the following line with {voice_dir} tone: '{clean_text}'. vertical 9:16"
 
             # Always use base_image to prevent drift and safety violations
             run_command(
