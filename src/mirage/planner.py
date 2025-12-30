@@ -49,7 +49,7 @@ def generate_story_plan(
         Create a compelling, multi-part video story based on this topic.
         The dialogue and tone should match the visual vibe of the character in the image.
         Break the story into a sequence of video segments.
-        Each segment must be short enough for an 8-second video clip (MAXIMUM 12 words). Keep dialogue concise.
+        Each segment must be short enough for an 8-second video clip (MAXIMUM 18 words). Keep dialogue natural and flowing.
         
         Return ONLY a raw JSON list of objects. Do not include markdown formatting like ```json.
         Structure:
@@ -72,7 +72,7 @@ def generate_story_plan(
         
         Create a compelling, multi-part video story based on this topic.
         Break the story into a sequence of video segments.
-        Each segment must be short enough for an 8-second video clip (MAXIMUM 12 words). Keep dialogue concise.
+        Each segment must be short enough for an 8-second video clip (MAXIMUM 18 words). Keep dialogue natural and flowing.
         
         Return ONLY a raw JSON list of objects. Do not include markdown formatting like ```json.
         Structure:

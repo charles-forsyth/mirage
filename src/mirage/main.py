@@ -672,7 +672,7 @@ def cmd_story(args: argparse.Namespace) -> None:
             )
 
         durations = [get_duration(v) for v in video_parts]
-        fade_duration = 0.25
+        fade_duration = 0.5
 
         inputs = ""
         for v in video_parts:
