@@ -22,6 +22,8 @@ install(show_locals=True)
 
 console = Console()
 
+DEFAULT_NEGATIVE_PROMPT = "text, watermark, copyright, signature, news anchor, news studio, television screen, chyron, split screen, ugly, deformed, blurry, low quality, cartoon, illustration, drawing, anime"
+
 
 def run_command(command: str, shell: bool = True, quiet: bool = False) -> None:
     """Runs a shell command and raises an exception on failure."""
@@ -365,7 +367,7 @@ def cmd_news_short(args: argparse.Namespace) -> None:
             status.update("[bold magenta]Capturing vertical visuals...[/bold magenta]")
         img_prompt = f"Vertical 9:16 cinematic b-roll shot of {topic}, atmospheric, hyper-realistic, 8k. No people, no text, no news anchor."
         run_command(
-            f'{settings.lumina_cmd} --prompt "{img_prompt}" --aspect-ratio 9:16 --output-dir "{output_dir}" --filename visual.png',
+            f'{settings.lumina_cmd} --prompt "{img_prompt}" --aspect-ratio 9:16 --negative-prompt "{DEFAULT_NEGATIVE_PROMPT}" --output-dir "{output_dir}" --filename visual.png',
             quiet=silent,
         )
 
@@ -551,7 +553,7 @@ def cmd_deep_news(args: argparse.Namespace) -> None:
 
             # A. Visual
             run_command(
-                f'{settings.lumina_cmd} --prompt "{vis_prompt}" --aspect-ratio 16:9 --output-dir "{output_dir}" --filename "seg_{part_num}.png"',
+                f'{settings.lumina_cmd} --prompt "{vis_prompt}" --aspect-ratio 16:9 --negative-prompt "{DEFAULT_NEGATIVE_PROMPT}" --output-dir "{output_dir}" --filename "seg_{part_num}.png"',
                 quiet=silent,
             )
 

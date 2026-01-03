@@ -171,7 +171,10 @@ def generate_news_plan(news_text: str) -> List[Dict[str, str]]:
     {news_text}
     
     Task: Split this EXACT text into a sequence of video segments.
-    1. Group related sentences together into logical B-roll chunks (e.g. 15-30 seconds).
+    1. Group related sentences together into logical B-roll chunks.
+       - IMPORTANT: Make segments SHORT (approx 5-10 seconds of speech).
+       - Aim for MANY segments to keep the visuals dynamic.
+       - Break long sentences into multiple segments if natural to do so.
     2. CONSTRAINT: Do NOT rewrite, summarize, or change the text. The 'narration' field must match the input text EXACTLY, chunk by chunk.
     3. For EACH segment, write a "visual_prompt" for an AI image generator (Lumina).
        - Photorealistic B-Roll description.
