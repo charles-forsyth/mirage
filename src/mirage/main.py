@@ -461,9 +461,7 @@ def cmd_deep_news(args: argparse.Namespace) -> None:
         if not silent:
             status.update(f"[bold green]Researching: {topic}...[/bold green]")
 
-        research_cmd = (
-            f'{settings.deep_research_cmd} research "{topic}" --output "{news_md}"'
-        )
+        research_cmd = f'{settings.deep_research_cmd} research "Deep Research this:" --output "{news_md}"'
         if upload_file and Path(upload_file).exists():
             research_cmd += f' --upload "{upload_file}"'
 

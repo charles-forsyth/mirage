@@ -165,26 +165,24 @@ def generate_news_plan(news_text: str) -> List[Dict[str, str]]:
     model_name = "gemini-3-pro-preview"
 
     prompt_text = f"""
-    You are a professional Video News Editor.
+    You are a Video Editor aligning visuals to a pre-recorded audio track.
     
     Source Text:
     {news_text}
     
-    Task: Convert this news report into a script for a video.
-    Break the text into a sequence of video segments.
-    1. Group related sentences together.
-    2. Ideally each segment is 15-30 seconds of speech.
-    3. For EACH segment, write a "visual_prompt" for an AI image generator (Lumina/Imagen).
-       - The prompt must be for photorealistic B-Roll.
-       - NO text, NO charts, NO infographics. Just cinematic photography or 3D renders.
-       - Aspect Ratio implied is 16:9.
+    Task: Split this EXACT text into a sequence of video segments.
+    1. Group related sentences together into logical B-roll chunks (e.g. 15-30 seconds).
+    2. CONSTRAINT: Do NOT rewrite, summarize, or change the text. The 'narration' field must match the input text EXACTLY, chunk by chunk.
+    3. For EACH segment, write a "visual_prompt" for an AI image generator (Lumina).
+       - Photorealistic B-Roll description.
+       - NO text, NO charts, NO infographics in the image.
     4. Return valid JSON.
     
     Structure:
     [
         {{
-            "narration": "Exact text to be spoken.",
-            "visual_prompt": "Detailed description of the image to show during this narration."
+            "narration": "Exact substring from source text.",
+            "visual_prompt": "Detailed visual description."
         }},
         ...
     ]
