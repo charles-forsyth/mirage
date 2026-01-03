@@ -143,3 +143,78 @@ def generate_story_plan(
                 "voice_direction": "Apologetic robot",
             }
         ]
+
+
+def generate_news_plan(news_text: str) -> List[Dict[str, str]]:
+    """
+    Calls Gemini to break down a long news report into visual B-roll segments.
+    """
+    api_key = os.environ.get("GOOGLE_API_KEY")
+    if not api_key:
+        env_path = os.path.expanduser("~/.config/mirage/.env")
+        if os.path.exists(env_path):
+            with open(env_path, "r") as f:
+                for line in f:
+                    if line.startswith("GOOGLE_API_KEY="):
+                        api_key = line.split("=")[1].strip().strip('"')
+                        break
+
+    if not api_key:
+        raise ValueError("GOOGLE_API_KEY not found.")
+
+    model_name = "gemini-3-pro-preview"
+
+    prompt_text = f"""
+    You are a professional Video News Editor.
+    
+    Source Text:
+    {news_text}
+    
+    Task: Convert this news report into a script for a video.
+    Break the text into a sequence of video segments.
+    1. Group related sentences together.
+    2. Ideally each segment is 15-30 seconds of speech.
+    3. For EACH segment, write a "visual_prompt" for an AI image generator (Lumina/Imagen).
+       - The prompt must be for photorealistic B-Roll.
+       - NO text, NO charts, NO infographics. Just cinematic photography or 3D renders.
+       - Aspect Ratio implied is 16:9.
+    4. Return valid JSON.
+    
+    Structure:
+    [
+        {{
+            "narration": "Exact text to be spoken.",
+            "visual_prompt": "Detailed description of the image to show during this narration."
+        }},
+        ...
+    ]
+    """
+
+    url = f"https://generativelanguage.googleapis.com/v1beta/models/{model_name}:generateContent?key={api_key}"
+
+    payload = {
+        "contents": [{"parts": [{"text": prompt_text}]}],
+        "generationConfig": {
+            "temperature": 0.5,
+            "responseMimeType": "application/json",
+        },
+    }
+
+    try:
+        response = requests.post(url, json=payload)
+        response.raise_for_status()
+        result = response.json()
+
+        text_content = result["candidates"][0]["content"]["parts"][0]["text"]
+        text_content = text_content.replace("```json", "").replace("```", "").strip()
+        plan = json.loads(text_content)
+        return plan
+
+    except Exception as e:
+        console.print(f"[red]News Planning Failed:[/red] {e}")
+        return [
+            {
+                "narration": "We are experiencing technical difficulties generating the news feed.",
+                "visual_prompt": "TV static and color bars, retro style",
+            }
+        ]
