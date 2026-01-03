@@ -22,7 +22,7 @@ install(show_locals=True)
 
 console = Console()
 
-DEFAULT_NEGATIVE_PROMPT = "text, watermark, copyright, signature, news anchor, news studio, television screen, chyron, split screen, ugly, deformed, blurry, low quality, cartoon, illustration, drawing, anime"
+DEFAULT_NEGATIVE_PROMPT = "text, watermark, copyright, signature, news anchor, news studio, television screen, chyron, split screen, ugly, deformed, blurry, low quality, cartoon, illustration, drawing, anime, studio lighting, microphone, suit, tie, breaking news graphic, lower third, teleprompter, cameraman, tv set, newscaster, talking head, interview, desk, broadcast overlay"
 
 
 def run_command(command: str, shell: bool = True, quiet: bool = False) -> None:
