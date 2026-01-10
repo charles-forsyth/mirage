@@ -31,8 +31,8 @@ def generate_story_plan(
     if not api_key:
         raise ValueError("GOOGLE_API_KEY not found in environment or config.")
 
-    # Model: Using gemini-1.5-pro as a proxy for 'best available' or try specific 3.0 endpoint if known.
-    model_name = "gemini-2.0-flash-exp"  # Using Flash for speed/multimodal, or stick to Pro if preferred.
+    # Model: Using gemini-3-pro-preview as requested.
+    model_name = "gemini-3-pro-preview"
 
     # Construct Prompt
     char_desc = character_meta.get("description", "A generic character")
