@@ -1007,7 +1007,7 @@ def cmd_summary(args: argparse.Namespace) -> None:
         if not silent:
             status.update("[bold blue]Generating summary script...[/bold blue]")
         run_command(
-            f'cat "{context_file}" | {settings.gen_tts_cmd} --mode summary --script-txt-out "{script_file}" --no-play --temp',
+            f'cat "{context_file}" | {settings.gen_tts_cmd} --mode summary --script-txt-out "{script_file}" --no-play',
             quiet=silent,
         )
 
