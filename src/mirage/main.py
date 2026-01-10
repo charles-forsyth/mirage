@@ -919,6 +919,210 @@ def cmd_story(args: argparse.Namespace) -> None:
         )
 
 
+def cmd_summary(args: argparse.Namespace) -> None:
+    """Generates a Visual Summary presented by a Character."""
+    topic = args.topic
+    character_name = args.character
+    silent = args.silent
+    is_cinema = getattr(args, "cinema", False)
+
+    # Aspect Ratio Config
+    ar_val = "16:9" if is_cinema else "9:16"
+    ar_vidius_suffix = "cinematic 16:9" if is_cinema else "vertical 9:16"
+    ar_prefix = "Summary_Cinema" if is_cinema else "Summary"
+
+    sanitized_topic = topic.replace(" ", "_").replace("/", "-")[:50]
+    timestamp = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+    output_dir = settings.output_base_dir / f"{ar_prefix}_{sanitized_topic}_{timestamp}"
+    output_dir.mkdir(parents=True, exist_ok=True)
+
+    if not silent:
+        mode_str = "Cinema Mode (16:9)" if is_cinema else "Portrait Mode (9:16)"
+        console.print(
+            Panel(
+                f"[bold green]Starting Mirage: Summary[/bold green]\nTopic: [cyan]{topic}[/cyan]\nMode: [magenta]{mode_str}[/magenta]\nOutput: [yellow]{output_dir}[/yellow]",
+                title="Mirage",
+            )
+        )
+
+    # Files
+    context_file = output_dir / "research.md"
+    script_file = output_dir / "script.txt"
+    base_image = output_dir / "base_char.png"
+    merged_video = output_dir / "Mirage_Summary_Final.mp4"
+
+    # Character Metadata Loading
+    character_meta = {
+        "description": character_name if character_name else "The character",
+        "voice_prompt": "Neutral narrator voice",
+    }
+
+    if character_name:
+        lib_dir = settings.character_library_dir
+        meta_file = lib_dir / f"{character_name}.json"
+        if meta_file.exists():
+            try:
+                with open(meta_file, "r") as f:
+                    meta = json.load(f)
+                    character_meta.update(meta)
+                if not silent:
+                    console.print(
+                        f"[green]Loaded metadata for {character_name}[/green]"
+                    )
+            except Exception:
+                console.print(
+                    "[yellow]Warning: Failed to load character metadata.[/yellow]"
+                )
+
+    # Casting Character
+    if not silent:
+        console.print("[bold magenta]Casting character...[/bold magenta]")
+
+    char_lib_path = settings.character_library_dir / f"{character_name}.png"
+
+    if character_name and char_lib_path.exists():
+        shutil.copy(char_lib_path, base_image)
+        if not silent:
+            console.print(
+                f"[green]Using character from library: {character_name}[/green]"
+            )
+    else:
+        console.print(
+            "[red]Character not found in library. Please use 'mirage character add' first.[/red]"
+        )
+        return
+
+    # 1. Research
+    with console.status(
+        f"[bold green]Researching: {topic}...[/bold green]", spinner="dots"
+    ) as status:
+        if not silent:
+            status.update(f"[bold green]Researching: {topic}...[/bold green]")
+        run_command(
+            f'{settings.deep_research_cmd} research "{topic}" --output "{context_file}"',
+            quiet=silent,
+        )
+
+        # 2. Summary
+        if not silent:
+            status.update("[bold blue]Generating summary script...[/bold blue]")
+        run_command(
+            f'cat "{context_file}" | {settings.gen_tts_cmd} --mode summary --script-txt-out "{script_file}" --no-play --temp',
+            quiet=silent,
+        )
+
+        script_text = script_file.read_text(encoding="utf-8")
+
+        # 3. Chunking
+        words = script_text.split()
+        chunks = []
+        current = []
+        for w in words:
+            current.append(w)
+            if len(current) >= 18:
+                chunks.append(" ".join(current))
+                current = []
+        if current:
+            chunks.append(" ".join(current))
+
+        if not silent:
+            console.print(
+                f"[cyan]Generated {len(chunks)} video segments from summary.[/cyan]"
+            )
+
+        # 4. Animation Loop
+        current_image = base_image
+        video_parts = []
+
+        for i, chunk_text in enumerate(chunks):
+            part_num = i + 1
+            voice_dir = character_meta["voice_prompt"]
+
+            if not silent:
+                status.update(
+                    f"[bold cyan]Animating Part {part_num}/{len(chunks)}...[/bold cyan]"
+                )
+
+            part_video = output_dir / f"part{part_num}.mp4"
+            clean_text = chunk_text.replace("'", "").replace('"', "")
+
+            vid_prompt = f"Static camera, fixed shot. The character is speaking the following line with {voice_dir} tone: '{clean_text}'. {ar_vidius_suffix}"
+
+            input_img = current_image if is_cinema else base_image
+
+            run_command(
+                f'{settings.vidius_cmd} "{vid_prompt}" -i "{input_img}" -o "{part_video}" -ar {ar_val} -np "zooming, camera movement, blur"',
+                quiet=silent,
+            )
+            video_parts.append(part_video)
+
+            if is_cinema and i < len(chunks) - 1:
+                next_image = output_dir / f"frame{part_num}.png"
+                run_command(
+                    f'{settings.ffmpeg_cmd} -y -sseof -1 -i "{part_video}" -vframes 1 "{next_image}"',
+                    quiet=silent,
+                )
+                current_image = next_image
+
+        # 5. Stitch
+        if not silent:
+            status.update("[bold white]Stitching video...[/bold white]")
+
+        durations = [get_duration(v) for v in video_parts]
+        fade_duration = 0.1
+
+        inputs = ""
+        for v in video_parts:
+            inputs += f'-i "{v}" '
+
+        v_accum = "0:v"
+        a_accum = "0:a"
+        offset = 0.0
+
+        video_filters = []
+        audio_filters = []
+
+        for i in range(1, len(video_parts)):
+            prev_dur = durations[i - 1]
+            offset += prev_dur - fade_duration
+
+            v_next = f"{i}:v"
+            v_out = f"v{i}"
+            video_filters.append(
+                f"[{v_accum}][{v_next}]xfade=transition=fade:duration={fade_duration}:offset={offset}[{v_out}]"
+            )
+            v_accum = v_out
+
+            a_next = f"{i}:a"
+            a_out = f"a{i}"
+            audio_filters.append(
+                f"[{a_accum}][{a_next}]acrossfade=d={fade_duration}:c1=tri:c2=tri[{a_out}]"
+            )
+            a_accum = a_out
+
+        filter_complex = ";".join(video_filters + audio_filters)
+
+        if len(video_parts) == 1:
+            cmd_stitch = f'{settings.ffmpeg_cmd} -y -i "{video_parts[0]}" -c copy "{merged_video}"'
+        else:
+            cmd_stitch = (
+                f"{settings.ffmpeg_cmd} -y {inputs} "
+                f'-filter_complex "{filter_complex}" '
+                f'-map "[{v_accum}]" -map "[{a_accum}]" '
+                f'-c:v libx264 -pix_fmt yuv420p "{merged_video}"'
+            )
+
+        run_command(cmd_stitch, quiet=silent)
+
+    if not silent:
+        console.print(
+            Panel(
+                f"[bold green]Summary Ready![/bold green]\nFile: [link=file://{merged_video.absolute()}]{merged_video}[/link]",
+                border_style="green",
+            )
+        )
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description="Mirage: AI Experience Generator")
     subparsers = parser.add_subparsers(dest="command", help="Available subcommands")
@@ -984,6 +1188,19 @@ def main() -> None:
         "-b", "--background", action="store_true", help="Background mode"
     )
     story.set_defaults(func=cmd_story)
+
+    # --- Summary Mode ---
+    summary = subparsers.add_parser(
+        "summary", help="Generate a Visual Summary presented by a Character"
+    )
+    summary.add_argument("topic", help="Topic to summarize")
+    summary.add_argument("-c", "--character", help="Character Name", required=True)
+    summary.add_argument("--cinema", action="store_true", help="Cinema mode (16:9)")
+    summary.add_argument("-s", "--silent", action="store_true", help="Silent mode")
+    summary.add_argument(
+        "-b", "--background", action="store_true", help="Background mode"
+    )
+    summary.set_defaults(func=cmd_summary)
 
     # --- Character Library ---
     char_parser = subparsers.add_parser("character", help="Manage Character Library")
