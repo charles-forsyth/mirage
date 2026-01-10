@@ -999,45 +999,80 @@ def cmd_summary(args: argparse.Namespace) -> None:
 
         script_text = script_file.read_text(encoding="utf-8")
 
-        # 3. Chunking
-        words = script_text.split()
-        chunks = []
-        current = []
-        for w in words:
-            current.append(w)
-            if len(current) >= 18:
+        # 3. Planning (Visual Segments)
+        if not silent:
+            status.update("[bold blue]Planning visual segments...[/bold blue]")
+
+        try:
+            segments = planner.generate_news_plan(script_text)
+        except Exception:
+            # Fallback to simple chunking
+            words = script_text.split()
+            chunks = []
+            current = []
+            for w in words:
+                current.append(w)
+                if len(current) >= 18:
+                    chunks.append(" ".join(current))
+                    current = []
+            if current:
                 chunks.append(" ".join(current))
-                current = []
-        if current:
-            chunks.append(" ".join(current))
+            segments = [
+                {"narration": c, "visual_prompt": "Generic background"} for c in chunks
+            ]
 
         if not silent:
-            console.print(
-                f"[cyan]Generated {len(chunks)} video segments from summary.[/cyan]"
-            )
+            console.print(f"[cyan]Generated {len(segments)} segments.[/cyan]")
 
         # 4. Animation Loop
         video_parts = []
 
-        for i, chunk_text in enumerate(chunks):
+        for i, segment in enumerate(segments):
             part_num = i + 1
+            narration = segment.get("narration", "")
+            visual_desc = segment.get("visual_prompt", "")
             voice_dir = character_meta["voice_prompt"]
 
-            if not silent:
-                status.update(
-                    f"[bold cyan]Animating Part {part_num}/{len(chunks)}...[/bold cyan]"
-                )
+            # Determine A/B Roll: Even=A (Character), Odd=B (Visual)
+            # Only do B-roll if we are in Cinema mode
+            is_b_roll = is_cinema and (i % 2 != 0)
 
             part_video = output_dir / f"part{part_num}.mp4"
-            clean_text = chunk_text.replace("'", "").replace('"', "")
+            clean_text = narration.replace("'", "").replace('"', "")
 
-            vid_prompt = f"Static camera, fixed shot. Seamless loop. The character is speaking the following line with {voice_dir} tone: '{clean_text}'. {ar_vidius_suffix}"
+            if not silent:
+                mode_label = "B-Roll" if is_b_roll else "A-Roll"
+                status.update(
+                    f"[bold cyan]Animating Part {part_num}/{len(segments)} ({mode_label})...[/bold cyan]"
+                )
 
-            # Always use base_image to prevent drift and safety violations
-            run_command(
-                f'{settings.vidius_cmd} "{vid_prompt}" -i "{base_image}" -o "{part_video}" -ar {ar_val} -np "zooming, camera movement, blur, dolly, pan, tilt, dynamic camera"',
-                quiet=silent,
-            )
+            if is_b_roll:
+                # B-Roll: Generate Image -> Video with VO
+                b_roll_img = output_dir / f"b_roll_{part_num}.png"
+                run_command(
+                    f'{settings.lumina_cmd} --prompt "Cinematic 16:9 shot of {visual_desc}, photorealistic, 8k" --aspect-ratio 16:9 --output-dir "{output_dir}" --filename "b_roll_{part_num}.png"',
+                    quiet=silent,
+                )
+
+                input_img = b_roll_img if b_roll_img.exists() else base_image
+
+                # Vidius VO Prompt
+                vid_prompt = f"Cinematic shot of {visual_desc}. Voiceover ({voice_dir}): '{clean_text}'. Slow pan."
+                run_command(
+                    f'{settings.vidius_cmd} "{vid_prompt}" -i "{input_img}" -o "{part_video}" -ar 16:9',
+                    quiet=silent,
+                )
+
+            else:
+                # A-Roll: Character
+                vid_prompt = f"Static camera, fixed shot. Seamless loop. The character is speaking the following line with {voice_dir} tone: '{clean_text}'. {ar_vidius_suffix}"
+
+                # Always use base_image to prevent drift
+                run_command(
+                    f'{settings.vidius_cmd} "{vid_prompt}" -i "{base_image}" -o "{part_video}" -ar {ar_val} -np "zooming, camera movement, blur, dolly, pan, tilt, dynamic camera"',
+                    quiet=silent,
+                )
+
             video_parts.append(part_video)
 
         # 5. Stitch
