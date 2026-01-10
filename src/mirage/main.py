@@ -844,7 +844,7 @@ def cmd_story(args: argparse.Namespace) -> None:
             input_img = current_image if is_cinema else base_image
 
             run_command(
-                f'{settings.vidius_cmd} "{vid_prompt}" -i "{input_img}" -o "{part_video}" -ar {ar_val} -np "zooming, camera movement, blur"',
+                f'{settings.vidius_cmd} "{vid_prompt}" -i "{input_img}" -o "{part_video}" -ar {ar_val} -np "zooming, camera movement, blur, dolly, pan, tilt, dynamic camera"',
                 quiet=silent,
             )
             video_parts.append(part_video)
@@ -1051,7 +1051,7 @@ def cmd_summary(args: argparse.Namespace) -> None:
             input_img = current_image if is_cinema else base_image
 
             run_command(
-                f'{settings.vidius_cmd} "{vid_prompt}" -i "{input_img}" -o "{part_video}" -ar {ar_val} -np "zooming, camera movement, blur"',
+                f'{settings.vidius_cmd} "{vid_prompt}" -i "{input_img}" -o "{part_video}" -ar {ar_val} -np "zooming, camera movement, blur, dolly, pan, tilt, dynamic camera"',
                 quiet=silent,
             )
             video_parts.append(part_video)
