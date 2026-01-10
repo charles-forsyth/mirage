@@ -14,7 +14,7 @@ def generate_story_plan(
     topic: str, character_meta: Dict[str, str], image_path: Optional[Path] = None
 ) -> List[Dict[str, str]]:
     """
-    Calls Gemini 1.5 Pro (or 3.0 Preview) to generate a structured story plan.
+    Calls Gemini 3.0 Pro Preview to generate a structured story plan.
     Supports multimodal input (Text + Image).
     """
     api_key = os.environ.get("GOOGLE_API_KEY")
@@ -31,7 +31,7 @@ def generate_story_plan(
     if not api_key:
         raise ValueError("GOOGLE_API_KEY not found in environment or config.")
 
-    # Model: Using gemini-3-pro-preview as requested.
+    # Model: Using gemini-3-pro-preview for advanced multimodal storytelling.
     model_name = "gemini-3-pro-preview"
 
     # Construct Prompt

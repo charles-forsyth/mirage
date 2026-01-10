@@ -793,7 +793,7 @@ def cmd_story(args: argparse.Namespace) -> None:
         )
 
     with console.status(
-        "[bold green]Dreaming story with Gemini 2.0...[/bold green]", spinner="dots"
+        "[bold green]Dreaming story with Gemini 3.0...[/bold green]", spinner="dots"
     ) as status:
         # 2. Generate Story Plan via Planner (Pass Image)
         if not silent:
