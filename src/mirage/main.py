@@ -22,6 +22,8 @@ install(show_locals=True)
 
 console = Console()
 
+DEFAULT_NEGATIVE_PROMPT = "text, watermark, copyright, signature, news anchor, news studio, television screen, chyron, split screen, ugly, deformed, blurry, low quality, cartoon, illustration, drawing, anime, studio lighting, microphone, suit, tie, breaking news graphic, lower third, teleprompter, cameraman, tv set, newscaster, talking head, interview, desk, broadcast overlay"
+
 
 def run_command(command: str, shell: bool = True, quiet: bool = False) -> None:
     """Runs a shell command and raises an exception on failure."""
@@ -365,7 +367,7 @@ def cmd_news_short(args: argparse.Namespace) -> None:
             status.update("[bold magenta]Capturing vertical visuals...[/bold magenta]")
         img_prompt = f"Vertical 9:16 cinematic b-roll shot of {topic}, atmospheric, hyper-realistic, 8k. No people, no text, no news anchor."
         run_command(
-            f'{settings.lumina_cmd} --prompt "{img_prompt}" --aspect-ratio 9:16 --output-dir "{output_dir}" --filename visual.png',
+            f'{settings.lumina_cmd} --prompt "{img_prompt}" --aspect-ratio 9:16 --negative-prompt "{DEFAULT_NEGATIVE_PROMPT}" --output-dir "{output_dir}" --filename visual.png',
             quiet=silent,
         )
 
@@ -420,6 +422,197 @@ def cmd_news_short(args: argparse.Namespace) -> None:
         console.print(
             Panel(
                 f"[bold green]News Short Ready![/bold green]\nFile: [link=file://{final_file.absolute()}]{final_file}[/link]",
+                border_style="green",
+            )
+        )
+
+
+def cmd_deep_news(args: argparse.Namespace) -> None:
+    """Generates a comprehensive Deep News Video Report."""
+    topic = args.topic
+    upload_file = args.upload
+    silent = args.silent
+
+    sanitized_topic = topic.replace(" ", "_").replace("/", "-")[:50]
+    timestamp = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+    output_dir = settings.output_base_dir / f"DeepNews_{sanitized_topic}_{timestamp}"
+    output_dir.mkdir(parents=True, exist_ok=True)
+
+    if not silent:
+        console.print(
+            Panel(
+                f"[bold green]Starting Mirage: Deep News[/bold green]\nTopic: [cyan]{topic}[/cyan]\nOutput: [yellow]{output_dir}[/yellow]",
+                title="Mirage",
+            )
+        )
+
+    # File paths
+    news_md = output_dir / "news.md"
+    news_mp3 = output_dir / "news.mp3"
+    news_txt = output_dir / "news.txt"
+    merged_video = output_dir / "Mirage_DeepNews_Final.mp4"
+
+    # Default upload logic
+    if not upload_file and Path("prp.txt").exists():
+        upload_file = "prp.txt"
+
+    # 1. Deep Research
+    with console.status(
+        f"[bold green]Researching: {topic}...[/bold green]", spinner="dots"
+    ) as status:
+        if not silent:
+            status.update(f"[bold green]Researching: {topic}...[/bold green]")
+
+        research_cmd = f'{settings.deep_research_cmd} research "Deep Research this:" --output "{news_md}"'
+        if upload_file and Path(upload_file).exists():
+            research_cmd += f' --upload "{upload_file}"'
+
+        run_command(research_cmd, quiet=silent)
+
+        if not news_md.exists():
+            console.print("[red]Deep Research failed to produce output.[/red]")
+            return
+
+        # 2. Generate Audio & Transcript (gen-tts)
+        if not silent:
+            status.update("[bold blue]Recording news broadcast...[/bold blue]")
+
+        # gen-tts --mode news --input-file news.md --output-file news.mp3 --script-txt-out news.txt
+        run_command(
+            f"{settings.gen_tts_cmd} --mode news "
+            f'--input-file "{news_md}" '
+            f'--output-file "{news_mp3}" '
+            f'--script-txt-out "{news_txt}"',
+            quiet=silent,
+        )
+
+        if not news_mp3.exists() or not news_txt.exists():
+            console.print("[red]TTS generation failed (missing mp3 or script).[/red]")
+            return
+
+        # 3. Planning (Break script into visual segments)
+        if not silent:
+            status.update("[bold blue]Planning visual segments...[/bold blue]")
+
+        script_content = news_txt.read_text(encoding="utf-8")
+
+        try:
+            segments = planner.generate_news_plan(script_content)
+        except Exception as e:
+            console.print(f"[red]Planning failed: {e}[/red]")
+            return
+
+        if not segments:
+            console.print("[red]No news segments generated.[/red]")
+            return
+
+        if not silent:
+            console.print(f"[cyan]Generated {len(segments)} news segments.[/cyan]")
+
+        # 4. Calculate Timings
+        total_audio_duration = get_duration(news_mp3)
+        total_chars = len(script_content)
+        # Avoid division by zero
+        if total_chars == 0:
+            total_chars = 1
+
+        time_per_char = total_audio_duration / total_chars
+
+        if not silent:
+            console.print(
+                f"[green]Audio: {total_audio_duration:.2f}s, Script: {total_chars} chars[/green]"
+            )
+
+        video_parts = []
+
+        # 5. Generate Media per Segment
+        for i, segment in enumerate(segments):
+            part_num = i + 1
+            narration = segment.get("narration", "")
+            vis_prompt = segment.get("visual_prompt", f"News visual for {topic}")
+
+            # Enhance & Sanitize Prompt
+            vis_prompt += ", 8k resolution, photorealistic, cinematic lighting"
+            vis_prompt = vis_prompt.replace('"', "'")
+
+            # Calculate duration for this segment
+            seg_len = len(narration)
+            seg_duration = seg_len * time_per_char
+
+            # Minimum duration safety (0.5s)
+            if seg_duration < 0.5:
+                seg_duration = 0.5
+
+            if not silent:
+                status.update(
+                    f"[bold cyan]Processing Segment {part_num}/{len(segments)}...[/bold cyan]"
+                )
+
+            seg_image = output_dir / f"seg_{part_num}.png"
+            seg_video = output_dir / f"seg_{part_num}.mp4"
+
+            # A. Visual
+            run_command(
+                f'{settings.lumina_cmd} --prompt "{vis_prompt}" --aspect-ratio 16:9 --negative-prompt "{DEFAULT_NEGATIVE_PROMPT}" --output-dir "{output_dir}" --filename "seg_{part_num}.png"',
+                quiet=silent,
+            )
+
+            if not seg_image.exists():
+                run_command(
+                    f'{settings.convert_cmd} -size 1920x1080 xc:black "{seg_image}"',
+                    quiet=True,
+                )
+
+            # B. Create Silent Clip with Fade
+            fade_len = 0.5
+            # Ensure fade out doesn't start before fade in ends if clip is very short
+            start_fade_out = max(0, seg_duration - fade_len)
+
+            cmd_clip = (
+                f'{settings.ffmpeg_cmd} -y -loop 1 -i "{seg_image}" '
+                f'-vf "fade=t=in:st=0:d={fade_len},fade=t=out:st={start_fade_out}:d={fade_len}" '
+                f"-c:v libx264 -tune stillimage -pix_fmt yuv420p "
+                f'-t {seg_duration} "{seg_video}"'
+            )
+            run_command(cmd_clip, quiet=silent)
+
+            if seg_video.exists():
+                video_parts.append(seg_video)
+
+        # 6. Concatenate & Merge
+        if not video_parts:
+            console.print("[red]No video parts generated.[/red]")
+            return
+
+        if not silent:
+            status.update("[bold white]Assembling final broadcast...[/bold white]")
+
+        concat_list_file = output_dir / "concat_list.txt"
+        silent_concat_mp4 = output_dir / "silent_concat.mp4"
+
+        with open(concat_list_file, "w") as f:
+            for p in video_parts:
+                f.write(f"file '{p.name}'\n")
+
+        # Concat Silent Video
+        run_command(
+            f'{settings.ffmpeg_cmd} -y -f concat -safe 0 -i "{concat_list_file}" -c copy "{silent_concat_mp4}"',
+            quiet=silent,
+        )
+
+        # Merge with Audio (Shortest wins to prevent silence at end or cutoff)
+        # Usually audio is master, so we might loop last frame if video is too short,
+        # but 'heuristic' timing should be close. '-shortest' is safe.
+        cmd_merge = (
+            f'{settings.ffmpeg_cmd} -y -i "{silent_concat_mp4}" -i "{news_mp3}" '
+            f'-c:v copy -c:a copy -shortest "{merged_video}"'
+        )
+        run_command(cmd_merge, quiet=silent)
+
+    if not silent:
+        console.print(
+            Panel(
+                f"[bold green]Deep News Report Ready![/bold green]\nFile: [link=file://{merged_video.absolute()}]{merged_video}[/link]",
                 border_style="green",
             )
         )
@@ -764,6 +957,18 @@ def main() -> None:
     news.add_argument("-s", "--silent", action="store_true", help="Silent mode")
     news.add_argument("-b", "--background", action="store_true", help="Background mode")
     news.set_defaults(func=cmd_news_short)
+
+    # --- Deep News ---
+    deep_news = subparsers.add_parser(
+        "deep-news", help="Generate a Deep Research News Video (16:9)"
+    )
+    deep_news.add_argument("topic", help="Research Topic")
+    deep_news.add_argument("-u", "--upload", help="Optional context file to upload")
+    deep_news.add_argument("-s", "--silent", action="store_true", help="Silent mode")
+    deep_news.add_argument(
+        "-b", "--background", action="store_true", help="Background mode"
+    )
+    deep_news.set_defaults(func=cmd_deep_news)
 
     # --- Story Mode ---
     story = subparsers.add_parser(

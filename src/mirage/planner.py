@@ -31,8 +31,8 @@ def generate_story_plan(
     if not api_key:
         raise ValueError("GOOGLE_API_KEY not found in environment or config.")
 
-    # Model: Using gemini-1.5-pro as a proxy for 'best available' or try specific 3.0 endpoint if known.
-    model_name = "gemini-2.0-flash-exp"  # Using Flash for speed/multimodal, or stick to Pro if preferred.
+    # Model: Using gemini-3-pro-preview as requested.
+    model_name = "gemini-3-pro-preview"
 
     # Construct Prompt
     char_desc = character_meta.get("description", "A generic character")
@@ -141,5 +141,81 @@ def generate_story_plan(
                 "narration": f"I attempted to tell a story about {topic}, but the plans were lost in the ether.",
                 "visual_prompt": f"Static and glitching digital screen with the words '{topic}'",
                 "voice_direction": "Apologetic robot",
+            }
+        ]
+
+
+def generate_news_plan(news_text: str) -> List[Dict[str, str]]:
+    """
+    Calls Gemini to break down a long news report into visual B-roll segments.
+    """
+    api_key = os.environ.get("GOOGLE_API_KEY")
+    if not api_key:
+        env_path = os.path.expanduser("~/.config/mirage/.env")
+        if os.path.exists(env_path):
+            with open(env_path, "r") as f:
+                for line in f:
+                    if line.startswith("GOOGLE_API_KEY="):
+                        api_key = line.split("=")[1].strip().strip('"')
+                        break
+
+    if not api_key:
+        raise ValueError("GOOGLE_API_KEY not found.")
+
+    model_name = "gemini-3-pro-preview"
+
+    prompt_text = f"""
+    You are a Video Editor aligning visuals to a pre-recorded audio track.
+    
+    Source Text:
+    {news_text}
+    
+    Task: Split this EXACT text into a sequence of video segments.
+    1. Group related sentences together into logical B-roll chunks.
+       - IMPORTANT: Make segments SHORT (approx 5-10 seconds of speech).
+       - Aim for MANY segments to keep the visuals dynamic.
+       - Break long sentences into multiple segments if natural to do so.
+    2. CONSTRAINT: Do NOT rewrite, summarize, or change the text. The 'narration' field must match the input text EXACTLY, chunk by chunk.
+    3. For EACH segment, write a "visual_prompt" for an AI image generator (Lumina).
+       - Photorealistic B-Roll description.
+       - NO text, NO charts, NO infographics in the image.
+    4. Return valid JSON.
+    
+    Structure:
+    [
+        {{
+            "narration": "Exact substring from source text.",
+            "visual_prompt": "Detailed visual description."
+        }},
+        ...
+    ]
+    """
+
+    url = f"https://generativelanguage.googleapis.com/v1beta/models/{model_name}:generateContent?key={api_key}"
+
+    payload = {
+        "contents": [{"parts": [{"text": prompt_text}]}],
+        "generationConfig": {
+            "temperature": 0.5,
+            "responseMimeType": "application/json",
+        },
+    }
+
+    try:
+        response = requests.post(url, json=payload)
+        response.raise_for_status()
+        result = response.json()
+
+        text_content = result["candidates"][0]["content"]["parts"][0]["text"]
+        text_content = text_content.replace("```json", "").replace("```", "").strip()
+        plan = json.loads(text_content)
+        return plan
+
+    except Exception as e:
+        console.print(f"[red]News Planning Failed:[/red] {e}")
+        return [
+            {
+                "narration": "We are experiencing technical difficulties generating the news feed.",
+                "visual_prompt": "TV static and color bars, retro style",
             }
         ]

@@ -1,0 +1,19 @@
+Act as a Senior Cyberinfrastructure Strategy Analyst. Perform a comprehensive deep research sweep for today, January 2, 2026, to generate a "State of the Art" Daily Intelligence Brief for Research Computing and Data (RCD).
+
+Search specifically for news, pre-prints, press releases, and solicitations from the last 24-48 hours in these four sectors:
+
+1. **HPC & Hardware:**
+   - Latest announcements from major vendors (NVIDIA, AMD, Intel) regarding data center GPUs, interconnects, or CPUs.
+   - Updates on Top500 class supercomputers or novel deployment architectures (e.g., liquid cooling, modular data centers).
+
+2. **AI for Science & Research:**
+   - Breakthroughs in "AI for Science" (e.g., AlphaFold updates, foundation models for biology/physics/climate).
+   - New open-source tools or frameworks specifically for scientific machine learning (SciML).
+
+3. **Research Software & Systems:**
+   - Major releases or security notices for key RCD stacks: Slurm, Kubernetes, Apptainer, Open OnDemand, Ceph, and Lustre.
+   - Emerging tools for research data management and workflow orchestration.
+
+4. **Funding & Grants (US Federal):**
+   - **CRITICAL:** Identify new or upcoming solicitations from NSF (OAC, TIP), NIH (OD, STRIDES), DOE (ASCR), and DoD.
+   - Focus on grants for cyberinfrastructure, instrumentation (MRI), campus computing, and workforce development.
