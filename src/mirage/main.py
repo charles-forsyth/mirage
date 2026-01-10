@@ -818,7 +818,6 @@ def cmd_story(args: argparse.Namespace) -> None:
         if not silent:
             console.print(f"[cyan]Generated {len(segments)} story segments.[/cyan]")
 
-        current_image = base_image
         video_parts = []
 
         # 3. Loop Generation (Iterate through segments)
@@ -836,27 +835,14 @@ def cmd_story(args: argparse.Namespace) -> None:
             clean_text = narration.replace("'", "").replace('"', "")
 
             # VIDIUS PROMPT CONSTRUCTION
-            vid_prompt = f"Static camera, fixed shot. The character is speaking the following line with {voice_dir} tone: '{clean_text}'. {ar_vidius_suffix}"
+            vid_prompt = f"Static camera, fixed shot. Seamless loop. The character is speaking the following line with {voice_dir} tone: '{clean_text}'. {ar_vidius_suffix}"
 
-            # Input Image Strategy:
-            # - Cinema (16:9): Use chaining (current_image) for flow/movement.
-            # - Portrait (9:16): Use base_image for stability/safety.
-            input_img = current_image if is_cinema else base_image
-
+            # Always use base_image to prevent drift and safety violations
             run_command(
-                f'{settings.vidius_cmd} "{vid_prompt}" -i "{input_img}" -o "{part_video}" -ar {ar_val} -np "zooming, camera movement, blur, dolly, pan, tilt, dynamic camera"',
+                f'{settings.vidius_cmd} "{vid_prompt}" -i "{base_image}" -o "{part_video}" -ar {ar_val} -np "zooming, camera movement, blur, dolly, pan, tilt, dynamic camera"',
                 quiet=silent,
             )
             video_parts.append(part_video)
-
-            # Chain Frame (Cinema Only)
-            if is_cinema and i < len(segments) - 1:
-                next_image = output_dir / f"frame{part_num}.png"
-                run_command(
-                    f'{settings.ffmpeg_cmd} -y -sseof -1 -i "{part_video}" -vframes 1 "{next_image}"',
-                    quiet=silent,
-                )
-                current_image = next_image
 
         # 4. Stitch Videos (XFade Filtergraph)
         if not silent:
@@ -1031,7 +1017,6 @@ def cmd_summary(args: argparse.Namespace) -> None:
             )
 
         # 4. Animation Loop
-        current_image = base_image
         video_parts = []
 
         for i, chunk_text in enumerate(chunks):
@@ -1046,23 +1031,14 @@ def cmd_summary(args: argparse.Namespace) -> None:
             part_video = output_dir / f"part{part_num}.mp4"
             clean_text = chunk_text.replace("'", "").replace('"', "")
 
-            vid_prompt = f"Static camera, fixed shot. The character is speaking the following line with {voice_dir} tone: '{clean_text}'. {ar_vidius_suffix}"
+            vid_prompt = f"Static camera, fixed shot. Seamless loop. The character is speaking the following line with {voice_dir} tone: '{clean_text}'. {ar_vidius_suffix}"
 
-            input_img = current_image if is_cinema else base_image
-
+            # Always use base_image to prevent drift and safety violations
             run_command(
-                f'{settings.vidius_cmd} "{vid_prompt}" -i "{input_img}" -o "{part_video}" -ar {ar_val} -np "zooming, camera movement, blur, dolly, pan, tilt, dynamic camera"',
+                f'{settings.vidius_cmd} "{vid_prompt}" -i "{base_image}" -o "{part_video}" -ar {ar_val} -np "zooming, camera movement, blur, dolly, pan, tilt, dynamic camera"',
                 quiet=silent,
             )
             video_parts.append(part_video)
-
-            if is_cinema and i < len(chunks) - 1:
-                next_image = output_dir / f"frame{part_num}.png"
-                run_command(
-                    f'{settings.ffmpeg_cmd} -y -sseof -1 -i "{part_video}" -vframes 1 "{next_image}"',
-                    quiet=silent,
-                )
-                current_image = next_image
 
         # 5. Stitch
         if not silent:
