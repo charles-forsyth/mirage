@@ -1151,6 +1151,8 @@ def cmd_hybrid(args: argparse.Namespace) -> None:
         research=args.research,
         lines=args.lines,
         heroes=args.heroes,
+        presenters=args.presenters,
+        tutorial=args.tutorial,
         tier=args.tier,
         image_model=args.image_model,
         aspect="16:9" if args.cinema else "9:16",
@@ -1275,8 +1277,18 @@ def main() -> None:
     hyb.add_argument(
         "--heroes",
         type=int,
-        default=3,
-        help="Veo hero shots (default 3; 0 = stills only)",
+        default=2,
+        help="Extra b-roll video shots (default 2; 0 = b-roll is all stills)",
+    )
+    hyb.add_argument(
+        "--tutorial",
+        action="store_true",
+        help="How-to mode: commands and config from --source are shown as exact screens (no AI text)",
+    )
+    hyb.add_argument(
+        "--presenters",
+        type=int,
+        help="Talking presenter lines, each a lip-moving video (default about a third of --lines)",
     )
     hyb.add_argument(
         "--tier", choices=["lite", "fast", "standard"], default=settings.video_tier

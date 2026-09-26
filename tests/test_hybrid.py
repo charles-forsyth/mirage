@@ -14,10 +14,10 @@ def test_hero_duration_picks_shortest_veo_length():
 
 
 def test_estimate_default_is_cheap_and_video_is_bounded():
-    led = hybrid.estimate(16, 3, 6, "lite", "flash", "quick")
-    assert led.total < 3.0
+    led = hybrid.estimate(16, 2, 6, "lite", "flash", "quick", presenters=5)
+    assert led.total < 3.5
     veo = [i for i in led.items if i["item"].startswith("Veo")]
-    assert veo and veo[0]["qty"] == 18 and veo[0]["unit_price"] == 0.05
+    assert veo and veo[0]["qty"] == 42 and veo[0]["unit_price"] == 0.05
 
 
 def test_estimate_stills_only_has_no_video():
@@ -25,7 +25,7 @@ def test_estimate_stills_only_has_no_video():
     assert not [i for i in led.items if i["item"].startswith("Veo")]
 
 
-def test_plan_enforces_hero_budget_and_opening_hero():
+def test_plan_presenters_always_talk_and_heroes_are_broll_only():
     fake = [
         {
             "line": f"l{i}",
@@ -36,9 +36,10 @@ def test_plan_enforces_hero_budget_and_opening_hero():
         for i in range(10)
     ]
     with patch.object(hybrid, "_gemini_json", return_value=fake):
-        plan = hybrid.plan_script("src", {}, 10, 3, "9:16")
+        plan = hybrid.plan_script("src", {}, 10, 3, "9:16", presenters=4)
+    assert all(s["talking"] for s in plan if s["shot"] == "presenter")
+    assert not any(s["hero"] for s in plan if s["shot"] == "presenter")
     assert sum(s["hero"] for s in plan) == 3
-    assert plan[0]["hero"] is True
     assert {s["shot"] for s in plan} <= {"presenter", "broll"}
 
 
