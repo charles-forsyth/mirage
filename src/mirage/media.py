@@ -73,7 +73,14 @@ def duration(p: Path) -> float:
 # ---------- generators (all cached) ----------
 
 
+def expected_speech_seconds(text: str) -> float:
+    return max(1.5, len(text.split()) / 2.6)
+
+
 def tts(text: str, out_wav: Path, voice: str, style_file: Optional[Path]) -> Path:
+    """One narration line. The voice character comes from the prebuilt voice; a style file is
+    not sent because gen-tts appends the transcript to it and the model then reads the line
+    twice. A result much longer than the words need is treated as a repeat and regenerated."""
     if exists(out_wav):
         return out_wav
     args = [
@@ -87,9 +94,16 @@ def tts(text: str, out_wav: Path, voice: str, style_file: Optional[Path]) -> Pat
         "--output-file",
         out_wav,
     ]
-    if style_file:
-        args += ["--detailed-prompt-file", style_file]
-    run(args)
+    limit = expected_speech_seconds(text) * 1.9 + 1.5
+    for attempt in range(3):
+        run_retry(args)
+        if duration(out_wav) <= limit:
+            return out_wav
+        console.print(
+            f"[yellow]Narration line ran {duration(out_wav):.1f}s (expected under {limit:.1f}s); regenerating[/yellow]"
+        )
+        out_wav.unlink()
+    run_retry(args)
     return out_wav
 
 
@@ -122,8 +136,36 @@ def image(
         args += ["-i", r]
     if negative:
         args += ["--negative-prompt", negative]
-    run(args)
+    run_retry(args)
     return out_png
+
+
+TRANSIENT = (
+    "503",
+    "UNAVAILABLE",
+    "429",
+    "RESOURCE_EXHAUSTED",
+    "500 INTERNAL",
+    "DEADLINE_EXCEEDED",
+)
+
+
+def run_retry(args: Sequence[Any], attempts: int = 3, wait: float = 20.0) -> str:
+    """Run a generator call, retrying transient API errors (503/429/500) with backoff."""
+    import time
+
+    for n in range(1, attempts + 1):
+        try:
+            return run(args)
+        except subprocess.CalledProcessError as e:
+            text = f"{e.stdout or ''}{e.stderr or ''}"
+            if n == attempts or not any(k in text for k in TRANSIENT):
+                raise
+            console.print(
+                f"[yellow]Transient API error, retry {n}/{attempts - 1} in {wait * n:.0f}s[/yellow]"
+            )
+            time.sleep(wait * n)
+    return ""
 
 
 def veo(
@@ -153,14 +195,14 @@ def veo(
     ]
     if not audio:
         args.append("-na")
-    run(args)
+    run_retry(args)
     return out_mp4
 
 
 def music(prompt: str, out_mp3: Path, seconds: int = 30) -> Path:
     if exists(out_mp3):
         return out_mp3
-    run(
+    run_retry(
         [settings.gen_music_cmd, prompt, "-o", out_mp3, "-f", "mp3", "-d", str(seconds)]
     )
     return out_mp3
@@ -174,7 +216,12 @@ def dims(aspect: str) -> tuple[int, int]:
 
 
 def still_clip(
-    img: Path, seconds: float, out_mp4: Path, aspect: str, variant: int
+    img: Path,
+    seconds: float,
+    out_mp4: Path,
+    aspect: str,
+    variant: int,
+    gentle: bool = False,
 ) -> Path:
     """Ken Burns clip: slow zoom in or out with a gentle drift. No API cost."""
     if exists(out_mp4):
@@ -183,10 +230,14 @@ def still_clip(
     fps = 30
     frames = max(1, math.ceil(seconds * fps))
     zoom_in = variant % 2 == 0
-    z = "min(1+0.0009*on,1.15)" if zoom_in else "max(1.15-0.0009*on,1.0)"
-    dx = ["iw/2-(iw/zoom/2)", "iw/2-(iw/zoom/2)+on*0.15", "iw/2-(iw/zoom/2)-on*0.15"][
-        variant % 3
+    rate, peak = (0.00015, 1.03) if gentle else (0.0009, 1.15)
+    z = f"min(1+{rate}*on,{peak})" if zoom_in else f"max({peak}-{rate}*on,1.0)"
+    drifts = [
+        "iw/2-(iw/zoom/2)",
+        "iw/2-(iw/zoom/2)+on*0.15",
+        "iw/2-(iw/zoom/2)-on*0.15",
     ]
+    dx = drifts[0] if gentle else drifts[variant % 3]
     vf = (
         f"scale={w * 2}:{h * 2}:force_original_aspect_ratio=increase,crop={w * 2}:{h * 2},"
         f"zoompan=z='{z}':x='{dx}':y='ih/2-(ih/zoom/2)':d={frames}:s={w}x{h}:fps={fps},"
@@ -230,6 +281,38 @@ def fit_clip(src: Path, seconds: float, out_mp4: Path, aspect: str) -> Path:
         [
             settings.ffmpeg_cmd,
             "-y",
+            "-i",
+            src,
+            "-vf",
+            vf,
+            "-t",
+            f"{seconds:.3f}",
+            "-c:v",
+            "libx264",
+            "-preset",
+            "veryfast",
+            "-crf",
+            "20",
+            "-an",
+            out_mp4,
+        ]
+    )
+    return out_mp4
+
+
+def loop_clip(src: Path, seconds: float, out_mp4: Path, aspect: str) -> Path:
+    """Fit a talking clip to `seconds`; if the line runs longer than the clip, loop it so the
+    character keeps moving instead of freezing on the last frame."""
+    if exists(out_mp4):
+        return out_mp4
+    w, h = dims(aspect)
+    vf = f"scale={w}:{h}:force_original_aspect_ratio=increase,crop={w}:{h},fps=30,format=yuv420p"
+    run(
+        [
+            settings.ffmpeg_cmd,
+            "-y",
+            "-stream_loop",
+            "-1",
             "-i",
             src,
             "-vf",

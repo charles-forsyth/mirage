@@ -29,11 +29,25 @@ def slug(text: str, n: int = 50) -> str:
 
 
 def caption_text(line: str) -> str:
-    """Undo TTS-friendly spellings for on-screen captions (A-I -> AI, T-P-Us -> TPUs)."""
+    """Undo TTS-friendly spellings for on-screen captions (A-I -> AI, U R L -> URL)."""
     line = re.sub(
         r"\b(?:[A-Z]-){1,4}[A-Z](?=s?\b)", lambda m: m.group(0).replace("-", ""), line
     )
-    for spoken, shown in (("Open-AI", "OpenAI"), ("x-AI", "xAI"), ("GPT-six", "GPT-6")):
+    line = re.sub(
+        r"\b(?:[A-Z] ){1,5}[A-Z]\b", lambda m: m.group(0).replace(" ", ""), line
+    )
+    for spoken, shown in (
+        ("Open-AI", "OpenAI"),
+        ("Open AI", "OpenAI"),
+        ("x-AI", "xAI"),
+        ("GPT-six", "GPT-6"),
+        ("UCRAI", "UCR AI"),
+        ("s k dash", "sk-"),
+        ("v one", "v1"),
+        ("Open Code", "OpenCode"),
+        ("error four zero one", "error 401"),
+        ("four two nine", "429"),
+    ):
         line = line.replace(spoken, shown)
     return line
 
@@ -68,10 +82,28 @@ def quick_research(topic: str) -> str:
 
 
 def plan_script(
-    source: str, character: dict, lines: int, heroes: int, aspect: str
+    source: str,
+    character: dict,
+    lines: int,
+    heroes: int,
+    aspect: str,
+    presenters: int = 5,
+    tutorial: bool = False,
 ) -> list[dict]:
     """Turn source material into presenter lines with a shot type per line."""
     orientation = "vertical 9:16" if aspect == "9:16" else "landscape 16:9"
+    tutorial_rules = ""
+    if tutorial:
+        tutorial_rules = """
+THIS IS A HOW-TO TUTORIAL. A third shot type is available and should be used for most b-roll:
+- "screen": an exact terminal or config-file screen. Give "title" (short, e.g. "Step 2: Hermes Agent")
+  and "code" (the exact commands or file contents from the source, copied verbatim, max 14 lines,
+  max 70 characters per line). Never invent commands, flags, URLs or model names that are not in the
+  source. Use placeholders exactly as written in the source (never a real key).
+Number steps exactly as the source headings do ("Step 2: Hermes Agent"); when one step needs several
+screens, reuse the same step title with "(1/2)", "(2/2)". Screen shots are drawn precisely, so every command and config snippet the viewer must type belongs on
+a "screen" shot, and the spoken line should say what the screen shows. Screens do not count as heroes.
+"""
     prompt = f"""
 You are the writer and director of a short {orientation} video presented by this character:
 {character.get("description", "a friendly presenter")}
@@ -82,15 +114,19 @@ an opening hook, the key facts in order, and a warm sign-off. Keep numbers accur
 Spell numbers the way they should be spoken.
 
 For each line choose one shot:
-- "presenter": the character on camera (use for the opening, sign-off and a few links).
+- "presenter": the character on camera, talking to the viewer. Use exactly {presenters} presenter lines,
+  always including the first and last line, spread through the piece.
 - "broll": a scene illustrating the fact, with no people talking and no text on screen.
-Mark exactly {heroes} lines as "hero": true; these get real video motion, so pick the most visual
-moments (always include the opening line). All other lines become stills with slow camera moves.
+Every presenter line becomes a talking video of the character. Among the b-roll lines only, mark exactly
+{heroes} as "hero": true; these also get video motion, so pick the most visual moments. Other b-roll lines
+become stills with slow camera moves.
 
 For every line write "visual": a detailed image prompt. For presenter shots, describe the character's
 pose, expression and setting. For b-roll, describe the scene photographically.
 
-Return JSON: [{{"line": "...", "shot": "presenter"|"broll", "hero": true|false, "visual": "..."}}]
+{tutorial_rules}
+Return JSON: [{{"line": "...", "shot": "presenter"|"broll"|"screen", "hero": true|false, "visual": "...",
+"title": "(screen only)", "code": "(screen only)"}}]
 
 SOURCE:
 {source[:30000]}
@@ -98,14 +134,17 @@ SOURCE:
     plan = _gemini_json(prompt)
     if not isinstance(plan, list) or not plan:
         raise ValueError("planner returned no lines")
-    # Enforce the hero budget regardless of what the model did.
-    flagged = [i for i, s in enumerate(plan) if s.get("hero")]
-    keep = set(([0] + [i for i in flagged if i != 0])[:heroes]) if heroes else set()
+    # Normalise shots; presenter lines always talk on video, heroes are counted among b-roll only.
+    allowed = ("presenter", "broll", "screen") if tutorial else ("presenter", "broll")
+    for s in plan:
+        s["shot"] = s.get("shot") if s.get("shot") in allowed else "broll"
+        if s["shot"] == "screen" and not s.get("code"):
+            s["shot"] = "broll"
+    flagged = [i for i, s in enumerate(plan) if s.get("hero") and s["shot"] == "broll"]
+    keep = set(flagged[:heroes])
     for i, s in enumerate(plan):
         s["hero"] = i in keep
-        s["shot"] = (
-            s.get("shot") if s.get("shot") in ("presenter", "broll") else "broll"
-        )
+        s["talking"] = s["shot"] == "presenter"
     return plan
 
 
@@ -118,6 +157,7 @@ def estimate(
     research: str,
     words: int = 18,
     with_music: bool = True,
+    presenters: int = 0,
 ) -> costs.Ledger:
     led = costs.Ledger()
     if research == "deep":
@@ -130,19 +170,27 @@ def estimate(
     speech = n_lines * words / costs.WORDS_PER_SECOND
     led.add("Narration TTS (seconds)", speech, round(costs.TTS_PER_SECOND, 5))
     model_id, img_price = costs.IMAGE_MODELS[image_model]
-    led.add(
-        f"Scene stills ({model_id})", n_lines - heroes if heroes else n_lines, img_price
-    )
-    if heroes:
-        led.add(f"Hero stills ({model_id})", heroes, img_price)
+    led.add(f"Scene stills ({model_id})", n_lines, img_price)
+    veo_secs = (presenters + heroes) * hero_seconds
+    if veo_secs:
         led.add(
-            f"Veo 3.1 {tier} (seconds)",
-            heroes * hero_seconds,
+            f"Veo 3.1 {tier} ({presenters} talking + {heroes} b-roll, seconds)",
+            veo_secs,
             costs.VEO_PER_SECOND[tier],
         )
     if with_music:
         led.add("Music bed (Lyria clip)", 1, costs.MUSIC_CLIP)
     return led
+
+
+def plan_cost(plan: list[dict], slots: list[float] | None, tier: str) -> float:
+    """Veo seconds actually needed by a plan (talking + hero clips)."""
+    secs = 0
+    for i, s in enumerate(plan):
+        if s.get("talking") or s.get("hero"):
+            slot = slots[i] if slots else 6.0
+            secs += costs.hero_duration(slot)
+    return round(secs * costs.VEO_PER_SECOND[tier], 2)
 
 
 def build(
@@ -152,7 +200,8 @@ def build(
     source_file: Optional[Path] = None,
     research: str = "quick",
     lines: int = 16,
-    heroes: int = 3,
+    heroes: int = 2,
+    presenters: Optional[int] = None,
     tier: str = "lite",
     image_model: str = "flash",
     aspect: str = "9:16",
@@ -162,6 +211,7 @@ def build(
     budget: Optional[float] = None,
     dry_run: bool = False,
     resume_dir: Optional[Path] = None,
+    tutorial: bool = False,
 ) -> Optional[Path]:
     lib = settings.character_library_dir
     character: dict = {
@@ -178,6 +228,8 @@ def build(
     voice = voice or character.get("tts_voice") or DEFAULT_VOICE
 
     hero_seconds = 6
+    if presenters is None:
+        presenters = max(3, round(lines / 3)) if char_png else 0
     led = estimate(
         lines,
         heroes,
@@ -186,6 +238,7 @@ def build(
         image_model,
         "file" if source_file else research,
         with_music=with_music,
+        presenters=presenters,
     )
     console.print("[bold]Cost estimate[/bold]")
     for ln in led.lines():
@@ -223,27 +276,41 @@ def build(
     plan = media.load_json(plan_path)
     if not plan:
         console.print("[cyan]Writing the script...[/cyan]")
-        plan = plan_script(src_path.read_text(), character, lines, heroes, aspect)
+        plan = plan_script(
+            src_path.read_text(), character, lines, heroes, aspect, presenters, tutorial
+        )
         media.save_json(plan, plan_path)
     assert isinstance(plan, list)
     (out / "script.txt").write_text("\n".join(s["line"] for s in plan))
 
     # 3. Narration, one voice for the whole piece
-    style = out / "voice_style.md"
-    style.write_text(
-        "### AUDIO PROFILE\n"
-        + character.get("voice_prompt", "")
-        + "\n### DIRECTOR NOTES\nConversational pace, smile in the voice, crisp consonants. Read only the transcript.\n"
-    )
     console.print(
         f"[cyan]Recording narration ({len(plan)} lines, voice {voice})...[/cyan]"
     )
     wavs = [
-        media.tts(s["line"], out / f"line_{i:02}.wav", voice, style)
+        media.tts(s["line"], out / f"line_{i:02}.wav", voice, None)
         for i, s in enumerate(plan)
     ]
     voice_wav = out / "narration.wav"
     slots = media.concat_audio(wavs, 0.35, voice_wav)
+
+    veo_cost = plan_cost(plan, slots, tier)
+    n_talk = sum(1 for s in plan if s.get("talking"))
+    n_hero = sum(1 for s in plan if s.get("hero"))
+    n_img = sum(1 for s in plan if s["shot"] != "screen")
+    img_cost = round(n_img * costs.IMAGE_MODELS[image_model][1], 2)
+    console.print(
+        f"[bold]Plan:[/bold] {n_talk} talking presenter clips + {n_hero} b-roll video clips "
+        f"= Veo ~${veo_cost:.2f}; {n_img} AI stills ~${img_cost:.2f}; "
+        f"{len(plan) - n_img} exact screens (free)"
+    )
+    if budget is not None and veo_cost + img_cost > budget:
+        console.print(
+            f"[red]This plan needs ~${veo_cost + img_cost:.2f} for visuals, over --budget ${budget:.2f}. "
+            f"Stopping before any image or video spend; rerun with --resume and a higher --budget, "
+            f"or fewer --presenters/--heroes.[/red]"
+        )
+        return None
 
     # 4. Visuals
     neg = "text, captions, watermark, logo, extra limbs, deformed"
@@ -253,6 +320,17 @@ def build(
         console.print(
             f"[cyan]Scene {i + 1}/{len(plan)} ({'hero' if s['hero'] else s['shot']})...[/cyan]"
         )
+        if s["shot"] == "screen":
+            from mirage.slides import render_screen
+
+            png = out / f"scene_{i:02}.png"
+            if not media.exists(png):
+                render_screen(s["code"], s.get("title", ""), png, aspect)
+            media.still_clip(
+                png, slot, out / f"clip_{i:02}.mp4", aspect, i, gentle=True
+            )
+            clips.append(out / f"clip_{i:02}.mp4")
+            continue
         refs = [char_png] if (char_png and s["shot"] == "presenter") else []
         prompt = s["visual"]
         if s["shot"] == "presenter" and char_png:
@@ -266,15 +344,24 @@ def build(
             negative=neg,
         )
         clip = out / f"clip_{i:02}.mp4"
-        if s["hero"]:
+        if s.get("talking") and char_png:
+            # Presenter lines are always a talking video, mouthing this exact line.
             secs = costs.hero_duration(slot)
-            motion = (
-                "gentle natural motion, subtle camera push-in"
-                if s["shot"] == "broll"
-                else "the character gestures and talks expressively, natural small movements, steady camera"
-            )
             raw = media.veo(
-                f"{s['visual']}. {motion}",
+                f"{s['visual']}. The character looks into the camera and speaks this line with natural "
+                f'lip movement, expressive face and small gestures: "{caption_text(s["line"])}". '
+                "Steady camera, no text on screen.",
+                img,
+                out / f"talk_{i:02}.mp4",
+                aspect,
+                secs,
+                tier,
+            )
+            media.loop_clip(raw, slot, clip, aspect)
+        elif s["hero"]:
+            secs = costs.hero_duration(slot)
+            raw = media.veo(
+                f"{s['visual']}. Gentle natural motion, subtle camera push-in.",
                 img,
                 out / f"hero_{i:02}.mp4",
                 aspect,
