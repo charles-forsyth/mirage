@@ -19,6 +19,15 @@ class Settings(BaseSettings):
     # Default Location
     default_location: str = "home"
 
+    # Cost defaults (see costs.py). Veo tier for any video clip: lite|fast|standard.
+    video_tier: str = "lite"
+    # Image model key for scene stills: flash (Nano Banana 2, ~$0.07) or pro (~$0.13).
+    image_model: str = "flash"
+    # Text model for quick grounded research (cheap Flash + Google Search).
+    research_model: str = "gemini-3.8-flash"
+    # Research for summary/deep-news: quick (Flash + Search, cents) or deep (Deep Research agent, ~$1-3).
+    research_mode: str = "quick"
+
     # Paths
     output_base_dir: Path = Path.home() / "Documents" / "Mirage"
     log_file: Path = Path.home() / ".config" / "mirage" / "mirage.log"
