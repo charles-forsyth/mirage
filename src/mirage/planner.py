@@ -10,29 +10,49 @@ from rich.console import Console
 console = Console()
 
 
+# Text model for story and news planning. Current GA Pro-class model with JSON output.
+PLANNER_MODEL = os.environ.get("MIRAGE_PLANNER_MODEL", "gemini-3.1-pro-preview")
+GEMINI_URL = (
+    "https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent"
+)
+
+
+def _load_api_key() -> str:
+    """Mirage's own Gemini key: GEMINI_API_KEY (or legacy GOOGLE_API_KEY) from
+    ~/.config/mirage/.env, falling back to the process environment."""
+    env_path = os.path.expanduser("~/.config/mirage/.env")
+    if os.path.exists(env_path):
+        with open(env_path, "r") as f:
+            for line in f:
+                name, _, value = line.strip().partition("=")
+                if name in ("GEMINI_API_KEY", "GOOGLE_API_KEY") and value:
+                    return value.strip().strip('"').strip("'")
+    key = os.environ.get("GEMINI_API_KEY") or os.environ.get("GOOGLE_API_KEY")
+    if not key:
+        raise ValueError(
+            "GEMINI_API_KEY not found in ~/.config/mirage/.env or the environment."
+        )
+    return key
+
+
+def _post_gemini(payload: Dict[str, Any]) -> "requests.Response":
+    response = requests.post(
+        GEMINI_URL.format(model=PLANNER_MODEL),
+        headers={"x-goog-api-key": _load_api_key()},
+        json=payload,
+        timeout=180,
+    )
+    response.raise_for_status()
+    return response
+
+
 def generate_story_plan(
     topic: str, character_meta: Dict[str, str], image_path: Optional[Path] = None
 ) -> List[Dict[str, str]]:
     """
-    Calls Gemini 3.0 Pro Preview to generate a structured story plan.
+    Calls Gemini to generate a structured story plan.
     Supports multimodal input (Text + Image).
     """
-    api_key = os.environ.get("GOOGLE_API_KEY")
-    if not api_key:
-        # Try loading from standard env file location if not in env
-        env_path = os.path.expanduser("~/.config/mirage/.env")
-        if os.path.exists(env_path):
-            with open(env_path, "r") as f:
-                for line in f:
-                    if line.startswith("GOOGLE_API_KEY="):
-                        api_key = line.split("=")[1].strip().strip('"')
-                        break
-
-    if not api_key:
-        raise ValueError("GOOGLE_API_KEY not found in environment or config.")
-
-    # Model: Using gemini-3-pro-preview for advanced multimodal storytelling.
-    model_name = "gemini-3-pro-preview"
 
     # Construct Prompt
     char_desc = character_meta.get("description", "A generic character")
@@ -107,8 +127,6 @@ def generate_story_plan(
                 f"[yellow]Warning: Failed to load character image for planner: {e}[/yellow]"
             )
 
-    url = f"https://generativelanguage.googleapis.com/v1beta/models/{model_name}:generateContent?key={api_key}"
-
     payload = {
         "contents": [{"parts": parts}],
         "generationConfig": {
@@ -118,8 +136,7 @@ def generate_story_plan(
     }
 
     try:
-        response = requests.post(url, json=payload)
-        response.raise_for_status()
+        response = _post_gemini(payload)
         result = response.json()
 
         # Parse JSON from the response text
@@ -149,20 +166,6 @@ def generate_news_plan(news_text: str) -> List[Dict[str, str]]:
     """
     Calls Gemini to break down a long news report into visual B-roll segments.
     """
-    api_key = os.environ.get("GOOGLE_API_KEY")
-    if not api_key:
-        env_path = os.path.expanduser("~/.config/mirage/.env")
-        if os.path.exists(env_path):
-            with open(env_path, "r") as f:
-                for line in f:
-                    if line.startswith("GOOGLE_API_KEY="):
-                        api_key = line.split("=")[1].strip().strip('"')
-                        break
-
-    if not api_key:
-        raise ValueError("GOOGLE_API_KEY not found.")
-
-    model_name = "gemini-3-pro-preview"
 
     prompt_text = f"""
     You are a Video Editor aligning visuals to a pre-recorded audio track.
@@ -191,8 +194,6 @@ def generate_news_plan(news_text: str) -> List[Dict[str, str]]:
     ]
     """
 
-    url = f"https://generativelanguage.googleapis.com/v1beta/models/{model_name}:generateContent?key={api_key}"
-
     payload = {
         "contents": [{"parts": [{"text": prompt_text}]}],
         "generationConfig": {
@@ -202,8 +203,7 @@ def generate_news_plan(news_text: str) -> List[Dict[str, str]]:
     }
 
     try:
-        response = requests.post(url, json=payload)
-        response.raise_for_status()
+        response = _post_gemini(payload)
         result = response.json()
 
         text_content = result["candidates"][0]["content"]["parts"][0]["text"]
