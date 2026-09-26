@@ -7,6 +7,7 @@ import datetime
 import shutil
 import re
 import json
+import shlex
 from pathlib import Path
 
 from rich.console import Console
@@ -114,11 +115,11 @@ def cmd_weather(args: argparse.Namespace) -> None:
             )
 
         cmd_gather = (
-            f'{settings.atmos_cmd} alert "{location}" > "{context_file}" && '
-            f'{settings.atmos_cmd} "{location}" >> "{context_file}" && '
-            f'{settings.atmos_cmd} stars "{location}" >> "{context_file}" && '
-            f'{settings.atmos_cmd} forecast "{location}" >> "{context_file}" && '
-            f'{settings.atmos_cmd} forecast "{location}" --hourly >> "{context_file}"'
+            f'{settings.atmos_cmd} alert {shlex.quote(location)} > "{context_file}" && '
+            f'{settings.atmos_cmd} {shlex.quote(location)} >> "{context_file}" && '
+            f'{settings.atmos_cmd} stars {shlex.quote(location)} >> "{context_file}" && '
+            f'{settings.atmos_cmd} forecast {shlex.quote(location)} >> "{context_file}" && '
+            f'{settings.atmos_cmd} forecast {shlex.quote(location)} --hourly >> "{context_file}"'
         )
         run_command(cmd_gather, quiet=True)
 
@@ -160,7 +161,7 @@ def cmd_weather(args: argparse.Namespace) -> None:
                     )
                 vid_prompt = f"Cinematic slow motion animation of {location}, realistic weather, highly detailed"
                 run_command(
-                    f'{settings.vidius_cmd} "{vid_prompt}" -i "{image_file}" -o "{video_file}" -na',
+                    f'{settings.vidius_cmd} -m {settings.video_tier} {shlex.quote(vid_prompt)} -i "{image_file}" -o "{video_file}" -na',
                     quiet=silent,
                 )
                 has_video = video_file.exists()
@@ -229,7 +230,7 @@ def cmd_research(args: argparse.Namespace) -> None:
             )
 
         run_command(
-            f'{settings.deep_research_cmd} research "{topic}" --output "{context_file}"',
+            f'{settings.deep_research_cmd} research {shlex.quote(topic)} --output "{context_file}"',
             quiet=silent,
         )
 
@@ -271,7 +272,7 @@ def cmd_research(args: argparse.Namespace) -> None:
             status.update("[bold yellow]Composing original score...[/bold yellow]")
         music_prompt = f"Ambient documentary background music, {topic}, cinematic score"
         run_command(
-            f'{settings.gen_music_cmd} "{music_prompt}" --output "{music_file}" --format mp3 --duration 30',
+            f'{settings.gen_music_cmd} {shlex.quote(music_prompt)} --output "{music_file}" --format mp3 --duration 30',
             quiet=silent,
         )
 
@@ -281,7 +282,7 @@ def cmd_research(args: argparse.Namespace) -> None:
             f"Editorial photography of {topic}, cinematic lighting, highly detailed, 8k"
         )
         run_command(
-            f'{settings.lumina_cmd} --prompt "{img_prompt}" --output-dir "{output_dir}" --filename background_art.png',
+            f'{settings.lumina_cmd} --prompt {shlex.quote(img_prompt)} --output-dir "{output_dir}" --filename background_art.png',
             quiet=silent,
         )
 
@@ -294,7 +295,7 @@ def cmd_research(args: argparse.Namespace) -> None:
                     f"Cinematic slow motion animation of {topic}, documentary style"
                 )
                 run_command(
-                    f'{settings.vidius_cmd} "{vid_prompt}" -i "{image_file}" -o "{video_file}" -na',
+                    f'{settings.vidius_cmd} -m {settings.video_tier} {shlex.quote(vid_prompt)} -i "{image_file}" -o "{video_file}" -na',
                     quiet=silent,
                 )
                 has_video = video_file.exists()
@@ -354,7 +355,7 @@ def cmd_news_short(args: argparse.Namespace) -> None:
             status.update("[bold blue]Writing and recording news brief...[/bold blue]")
         # Use pipe pattern with --mode news. Just pass the topic, let the mode handle framing.
         run_command(
-            f'echo "{topic}" | {settings.gen_tts_cmd} --mode news --no-play --audio-format MP3 --output-file "{podcast_file}"',
+            f'echo {shlex.quote(topic)} | {settings.gen_tts_cmd} --mode news --no-play --audio-format MP3 --output-file "{podcast_file}"',
             quiet=silent,
         )
 
@@ -367,7 +368,7 @@ def cmd_news_short(args: argparse.Namespace) -> None:
             status.update("[bold magenta]Capturing vertical visuals...[/bold magenta]")
         img_prompt = f"Vertical 9:16 cinematic b-roll shot of {topic}, atmospheric, hyper-realistic, 8k. No people, no text, no news anchor."
         run_command(
-            f'{settings.lumina_cmd} --prompt "{img_prompt}" --aspect-ratio 9:16 --negative-prompt "{DEFAULT_NEGATIVE_PROMPT}" --output-dir "{output_dir}" --filename visual.png',
+            f'{settings.lumina_cmd} --prompt {shlex.quote(img_prompt)} --aspect-ratio 9:16 --negative-prompt {shlex.quote(DEFAULT_NEGATIVE_PROMPT)} --output-dir "{output_dir}" --filename visual.png',
             quiet=silent,
         )
 
@@ -385,7 +386,7 @@ def cmd_news_short(args: argparse.Namespace) -> None:
             status.update("[bold cyan]Animating background...[/bold cyan]")
         vid_prompt = f"Cinematic b-roll of {topic}, vertical 9:16, seamless loop, continuous motion"
         run_command(
-            f'{settings.vidius_cmd} "{vid_prompt}" -i "{image_file}" -o "{video_file}" -ar 9:16 -na',
+            f'{settings.vidius_cmd} -m {settings.video_tier} {shlex.quote(vid_prompt)} -i "{image_file}" -o "{video_file}" -ar 9:16 -na',
             quiet=silent,
         )
 
@@ -394,7 +395,7 @@ def cmd_news_short(args: argparse.Namespace) -> None:
             status.update("[bold yellow]Composing background beat...[/bold yellow]")
         music_prompt = f"Breaking news intro music, high energy, electronic, background for {topic}"
         run_command(
-            f'{settings.gen_music_cmd} "{music_prompt}" --output "{music_file}" --format mp3 --duration 60',
+            f'{settings.gen_music_cmd} {shlex.quote(music_prompt)} --output "{music_file}" --format mp3 --duration 30',
             quiet=silent,
         )
 
@@ -463,7 +464,7 @@ def cmd_deep_news(args: argparse.Namespace) -> None:
         if not silent:
             status.update(f"[bold green]Researching: {topic}...[/bold green]")
 
-        research_cmd = f'{settings.deep_research_cmd} research "Deep Research this:" --output "{news_md}"'
+        research_cmd = f'{settings.deep_research_cmd} research {shlex.quote(topic)} --output "{news_md}"'
         if upload_file and Path(upload_file).exists():
             research_cmd += f' --upload "{upload_file}"'
 
@@ -553,7 +554,7 @@ def cmd_deep_news(args: argparse.Namespace) -> None:
 
             # A. Visual
             run_command(
-                f'{settings.lumina_cmd} --prompt "{vis_prompt}" --aspect-ratio 16:9 --negative-prompt "{DEFAULT_NEGATIVE_PROMPT}" --output-dir "{output_dir}" --filename "seg_{part_num}.png"',
+                f'{settings.lumina_cmd} --prompt {shlex.quote(vis_prompt)} --aspect-ratio 16:9 --negative-prompt {shlex.quote(DEFAULT_NEGATIVE_PROMPT)} --model-name gemini-3.1-flash-image --image-size 1K --output-dir "{output_dir}" --filename "seg_{part_num}.png"',
                 quiet=silent,
             )
 
@@ -689,7 +690,7 @@ def cmd_character(args: argparse.Namespace) -> None:
 
         # Run lumina
         run_command(
-            f'{settings.lumina_cmd} --prompt "{lumina_prompt}" --aspect-ratio 9:16 --output-dir "{lib_dir}" --filename "{args.name}.png"'
+            f'{settings.lumina_cmd} --prompt {shlex.quote(lumina_prompt)} --aspect-ratio 9:16 --output-dir "{lib_dir}" --filename {shlex.quote(args.name + ".png")}'
         )
 
         # Save Metadata
@@ -788,7 +789,7 @@ def cmd_story(args: argparse.Namespace) -> None:
             f"{ar_lumina_desc} of {char_desc}, highly detailed, cinematic lighting, 8k"
         )
         run_command(
-            f'{settings.lumina_cmd} --prompt "{char_prompt}" --aspect-ratio {ar_val} --output-dir "{output_dir}" --filename base_char.png',
+            f'{settings.lumina_cmd} --prompt {shlex.quote(char_prompt)} --aspect-ratio {ar_val} --output-dir "{output_dir}" --filename base_char.png',
             quiet=silent,
         )
 
@@ -839,7 +840,7 @@ def cmd_story(args: argparse.Namespace) -> None:
 
             # Always use base_image to prevent drift and safety violations
             run_command(
-                f'{settings.vidius_cmd} "{vid_prompt}" -i "{base_image}" -o "{part_video}" -ar {ar_val} -np "zooming, camera movement, blur, dolly, pan, tilt, dynamic camera"',
+                f'{settings.vidius_cmd} -m {settings.video_tier} {shlex.quote(vid_prompt)} -i "{base_image}" -o "{part_video}" -d 6 -ar {ar_val} -np "zooming, camera movement, blur, dolly, pan, tilt, dynamic camera"',
                 quiet=silent,
             )
             video_parts.append(part_video)
@@ -984,10 +985,15 @@ def cmd_summary(args: argparse.Namespace) -> None:
     ) as status:
         if not silent:
             status.update(f"[bold green]Researching: {topic}...[/bold green]")
-        run_command(
-            f'{settings.deep_research_cmd} research "{topic}" --output "{context_file}"',
-            quiet=silent,
-        )
+        if getattr(args, "research", settings.research_mode) == "deep":
+            run_command(
+                f'{settings.deep_research_cmd} research {shlex.quote(topic)} --output "{context_file}"',
+                quiet=silent,
+            )
+        else:
+            from mirage.hybrid import quick_research
+
+            context_file.write_text(quick_research(topic), encoding="utf-8")
 
         # 2. Summary
         if not silent:
@@ -1050,7 +1056,7 @@ def cmd_summary(args: argparse.Namespace) -> None:
                 # B-Roll: Generate Image -> Video with VO
                 b_roll_img = output_dir / f"b_roll_{part_num}.png"
                 run_command(
-                    f'{settings.lumina_cmd} --prompt "Cinematic 16:9 shot of {visual_desc}, photorealistic, 8k" --aspect-ratio 16:9 --output-dir "{output_dir}" --filename "b_roll_{part_num}.png"',
+                    f'{settings.lumina_cmd} --prompt {shlex.quote(f"Cinematic 16:9 shot of {visual_desc}, photorealistic, 8k")} --aspect-ratio 16:9 --model-name gemini-3.1-flash-image --image-size 1K --output-dir "{output_dir}" --filename "b_roll_{part_num}.png"',
                     quiet=silent,
                 )
 
@@ -1059,7 +1065,7 @@ def cmd_summary(args: argparse.Namespace) -> None:
                 # Vidius VO Prompt
                 vid_prompt = f"Cinematic shot of {visual_desc}. Voiceover ({voice_dir}): '{clean_text}'. Slow pan."
                 run_command(
-                    f'{settings.vidius_cmd} "{vid_prompt}" -i "{input_img}" -o "{part_video}" -ar 16:9',
+                    f'{settings.vidius_cmd} -m {settings.video_tier} {shlex.quote(vid_prompt)} -i "{input_img}" -o "{part_video}" -ar 16:9',
                     quiet=silent,
                 )
 
@@ -1069,7 +1075,7 @@ def cmd_summary(args: argparse.Namespace) -> None:
 
                 # Always use base_image to prevent drift
                 run_command(
-                    f'{settings.vidius_cmd} "{vid_prompt}" -i "{base_image}" -o "{part_video}" -ar {ar_val} -np "zooming, camera movement, blur, dolly, pan, tilt, dynamic camera"',
+                    f'{settings.vidius_cmd} -m {settings.video_tier} {shlex.quote(vid_prompt)} -i "{base_image}" -o "{part_video}" -d 6 -ar {ar_val} -np "zooming, camera movement, blur, dolly, pan, tilt, dynamic camera"',
                     quiet=silent,
                 )
 
@@ -1132,6 +1138,29 @@ def cmd_summary(args: argparse.Namespace) -> None:
                 border_style="green",
             )
         )
+
+
+def cmd_hybrid(args: argparse.Namespace) -> None:
+    """Low-cost presenter video (see mirage.hybrid)."""
+    from mirage.hybrid import build
+
+    build(
+        args.topic,
+        args.character,
+        source_file=args.source,
+        research=args.research,
+        lines=args.lines,
+        heroes=args.heroes,
+        tier=args.tier,
+        image_model=args.image_model,
+        aspect="16:9" if args.cinema else "9:16",
+        voice=args.voice,
+        with_music=not args.no_music,
+        captions=not args.no_captions,
+        budget=args.budget,
+        dry_run=args.estimate,
+        resume_dir=args.resume,
+    )
 
 
 def main() -> None:
@@ -1207,11 +1236,79 @@ def main() -> None:
     summary.add_argument("topic", help="Topic to summarize")
     summary.add_argument("-c", "--character", help="Character Name", required=True)
     summary.add_argument("--cinema", action="store_true", help="Cinema mode (16:9)")
+    summary.add_argument(
+        "--research",
+        choices=["quick", "deep"],
+        default=settings.research_mode,
+        help="quick = Gemini Flash + Google Search (cents); deep = Deep Research agent (~$1-3)",
+    )
     summary.add_argument("-s", "--silent", action="store_true", help="Silent mode")
     summary.add_argument(
         "-b", "--background", action="store_true", help="Background mode"
     )
     summary.set_defaults(func=cmd_summary)
+
+    # --- Hybrid (low-cost presenter video) ---
+    hyb = subparsers.add_parser(
+        "hybrid",
+        help="Low-cost presenter video: one narrator voice, stills with motion, a few Veo hero shots",
+    )
+    hyb.add_argument(
+        "topic", help="Topic (researched unless --source or --research none)"
+    )
+    hyb.add_argument("-c", "--character", help="Character name from the library")
+    hyb.add_argument(
+        "--source", type=Path, help="Use this text/markdown file instead of researching"
+    )
+    hyb.add_argument(
+        "--research",
+        choices=["quick", "deep", "none"],
+        default=settings.research_mode,
+        help="quick = Gemini Flash + Google Search (cents); deep = Deep Research agent (~$1-3)",
+    )
+    hyb.add_argument(
+        "--lines",
+        type=int,
+        default=16,
+        help="Number of narration lines (default 16, ~2 min)",
+    )
+    hyb.add_argument(
+        "--heroes",
+        type=int,
+        default=3,
+        help="Veo hero shots (default 3; 0 = stills only)",
+    )
+    hyb.add_argument(
+        "--tier", choices=["lite", "fast", "standard"], default=settings.video_tier
+    )
+    hyb.add_argument(
+        "--image-model", choices=["flash", "pro"], default=settings.image_model
+    )
+    hyb.add_argument(
+        "--cinema", action="store_true", help="16:9 instead of vertical 9:16"
+    )
+    hyb.add_argument(
+        "--voice",
+        help="Gemini TTS voice name (default Aoede or the character's tts_voice)",
+    )
+    hyb.add_argument("--no-music", action="store_true")
+    hyb.add_argument("--no-captions", action="store_true")
+    hyb.add_argument(
+        "--budget",
+        type=float,
+        help="Refuse to start if the estimate is above this many dollars",
+    )
+    hyb.add_argument(
+        "--estimate", action="store_true", help="Print the cost estimate and exit"
+    )
+    hyb.add_argument(
+        "--resume",
+        type=Path,
+        help="Resume a previous Hybrid_* output folder (reuses finished pieces)",
+    )
+    hyb.add_argument("-s", "--silent", action="store_true", help="Silent mode")
+    hyb.add_argument("-b", "--background", action="store_true", help="Background mode")
+    hyb.set_defaults(func=cmd_hybrid)
 
     # --- Character Library ---
     char_parser = subparsers.add_parser("character", help="Manage Character Library")
@@ -1229,7 +1326,14 @@ def main() -> None:
     char_parser.add_argument("--voice", help="Voice Description (metadata)")
     char_parser.set_defaults(func=cmd_character)
 
+    parser.add_argument(
+        "--tier",
+        choices=["lite", "fast", "standard"],
+        help=f"Veo tier for every video clip (default {settings.video_tier})",
+    )
     args = parser.parse_args()
+    if getattr(args, "tier", None) and args.command != "hybrid":
+        settings.video_tier = args.tier
 
     # Handle Background Mode
     if hasattr(args, "background") and args.background:
