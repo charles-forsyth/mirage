@@ -1,5 +1,7 @@
 # Mirage
 
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.23755679.svg)](https://doi.org/10.5281/zenodo.23755679)
+
 AI video and audio experience orchestrator (`v0.15.0`) built atop five dedicated generation CLIs: `lumina` (images), `vidius` (Veo 3.1 video), `gen-tts` (Gemini 3.8 voices), `gen-music` (Lyria music), `deep-research`, and `atmos`, mixed and mastered with `ffmpeg`.
 
 See [SPEC.md](SPEC.md) for the full system specification, hybrid shot model, cost ledger formulas, character schema, and requirement traceability.
